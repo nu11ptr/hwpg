@@ -83,6 +83,18 @@ requirements_deprecated_finder = ["pipreqs", "pip-api"]
 colors = ["colorama (>=0.4.3,<0.5.0)"]
 
 [[package]]
+name = "lark-parser"
+version = "0.11.2"
+description = "a modern parsing library"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.extras]
+nearley = ["js2py"]
+regex = ["regex"]
+
+[[package]]
 name = "lazy-object-proxy"
 version = "1.6.0"
 description = "A fast and thorough lazy object proxy."
@@ -207,7 +219,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "d2b6797e3f53134fb453148159cf6ced89b99f81672bfd3a27945b0bd1a3f9db"
+content-hash = "82e91ca72fe774e229e2d472811ea04847ea54e9fd827170a423cbee987a54bc"
 
 [metadata.files]
 appdirs = [
@@ -237,6 +249,9 @@ flake8 = [
 isort = [
     {file = "isort-5.8.0-py3-none-any.whl", hash = "sha256:2bb1680aad211e3c9944dbce1d4ba09a989f04e238296c87fe2139faa26d655d"},
     {file = "isort-5.8.0.tar.gz", hash = "sha256:0a943902919f65c5684ac4e0154b1ad4fac6dcaa5d9f3426b732f1c8b5419be6"},
+]
+lark-parser = [
+    {file = "lark-parser-0.11.2.tar.gz", hash = "sha256:ef610461ebf2b243502f337d9d49879e39f9add846a4749e88c8dcdc1378bb6b"},
 ]
 lazy-object-proxy = [
     {file = "lazy-object-proxy-1.6.0.tar.gz", hash = "sha256:489000d368377571c6f982fba6497f2aa13c6d1facc40660963da62f5c379726"},
