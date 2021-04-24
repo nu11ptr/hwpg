@@ -84,19 +84,24 @@ class ToAST(Transformer):
         return RuleBody(args)
 
     def rule_part(self, args: List[Any]) -> Node:
-        # Has no suffix - return 'as-is'
         rule_len = len(args)
+
+        # Has no suffix, nor in square brackets - return 'as-is'
         if rule_len == 1:
             return args[0]
+        # rule element followed by suffix
+        elif rule_len == 2:
+            rule_elem, suffix = args
+            if suffix == "+":
+                return OneOrMore(rule_elem)
+            if suffix == "*":
+                return ZeroOrMore(rule_elem)
+            if suffix == "?":
+                return ZeroOrOne(rule_elem)
 
-        assert rule_len == 2, f"Rule length isn't 1 or 2: {rule_len}"
+            raise AssertionError(f"Unknown suffix: {suffix}")
+        # rule body in between square brackets
+        elif rule_len == 3:
+            return ZeroOrOne(args[1])
 
-        rule_elem, suffix = args
-        if suffix == "+":
-            return OneOrMore(rule_elem)
-        if suffix == "*":
-            return ZeroOrMore(rule_elem)
-        if suffix == "?":
-            return ZeroOrOne(rule_elem)
-
-        raise AssertionError(f"Unknown suffix: {suffix}")
+        raise AssertionError(f"Rule length isn't 1-3: {rule_len}")

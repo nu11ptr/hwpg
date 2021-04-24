@@ -6,7 +6,7 @@ rule: RULE_NAME ":" rule_body ";"
 
 rule_body: rule_part+ ("|" rule_part+)*
 
-rule_part: rule_elem [suffix]
+rule_part: rule_elem [suffix] | LBRACKET rule_body RBRACKET
 
 ?rule_elem: "(" rule_body ")" | RULE_NAME | TOKEN_NAME | TOKEN_LIT
 
@@ -17,6 +17,8 @@ rule_part: rule_elem [suffix]
 PLUS: "+"
 STAR: "*"
 QUEST_MARK: "?"
+LBRACKET: "["
+RBRACKET: "]"
 
 TOKEN_NAME: /[A-Z][A-Z0-9_]*/
 RULE_NAME: /[a-z][a-z0-9_]*/
