@@ -4,7 +4,7 @@ grammar: rule*
 
 rule: RULE_NAME ":" rule_body ";"
 
-rule_body: rule_part+ ("|" rule_part+)*
+rule_body: rule_part+ (PIPE rule_part+)*
 
 rule_part: rule_elem [suffix] | LBRACKET rule_body RBRACKET
 
@@ -19,6 +19,7 @@ STAR: "*"
 QUEST_MARK: "?"
 LBRACKET: "["
 RBRACKET: "]"
+PIPE: "|"
 
 TOKEN_NAME: /[A-Z][A-Z0-9_]*/
 RULE_NAME: /[a-z][a-z0-9_]*/

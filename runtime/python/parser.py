@@ -22,7 +22,17 @@ class Parser:
         self._tokens.append(tok)
         return tok
 
-    def match_token_or_rollback(self, tt: TokenType) -> Optional[Token]:
+    def match_token_or_rollback(self, tt: TokenType, old_pos: int) -> Optional[Token]:
+        tok = self.curr_token()
+
+        if tok.token_type() != tt:
+            self.pos = old_pos
+            return None
+
+        self.next_token()
+        return tok
+
+    def try_match_token(self, tt: TokenType) -> Optional[Token]:
         tok = self.curr_token()
 
         if tok.token_type() != tt:

@@ -9,27 +9,32 @@ class Node:
     pass
 
 
+@dataclass
+class NodeContainer(Node):
+    pass
+
+
 # rule_body
 @dataclass
-class RuleBody(Node):
+class RuleBody(NodeContainer):
     rules: List[List[Node]]
 
 
 # rule_part
 @dataclass
-class ZeroOrMore(Node):
+class ZeroOrMore(NodeContainer):
     node: Node
 
 
 # rule_part
 @dataclass
-class OneOrMore(Node):
+class OneOrMore(NodeContainer):
     node: Node
 
 
 # rule_part
 @dataclass
-class ZeroOrOne(Node):
+class ZeroOrOne(NodeContainer):
     node: Node
 
 
@@ -80,8 +85,21 @@ class ToAST(Transformer):
     def rule(self, args: List[Any]) -> Rule:
         return Rule(args[0].name, args[1])
 
-    def rule_body(self, args: List[List[Node]]) -> RuleBody:
-        return RuleBody(args)
+    def rule_body(self, args: List[Node]) -> RuleBody:
+        rules: List[Node] = []
+        alternatives: List[List[Node]] = []
+
+        for arg in args:
+            # When we hit a pipe in the stream, end current alternative
+            if isinstance(arg, Token) and arg.value == "|":
+                alternatives.append(rules)
+                rules = []
+                continue
+
+            rules.append(arg)
+
+        alternatives.append(rules)
+        return RuleBody(alternatives)
 
     def rule_part(self, args: List[Any]) -> Node:
         rule_len = len(args)
