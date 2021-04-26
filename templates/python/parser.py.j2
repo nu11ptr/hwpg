@@ -1,9 +1,13 @@
+{% if memoize %}
+from typing import Callable, Dict, List, Optional, Tuple
+{% else %}
 from typing import List, Optional
+{% endif %}
 
 from .lexer import Token, TokenType, Tokenizer
 
 
-class Parser:
+class _Parser:
     def __init__(self, tokenizer: Tokenizer):
         self._tok = tokenizer
         self.pos = -1
@@ -40,3 +44,34 @@ class Parser:
 
         self._next_token()
         return tok
+
+{% if memoize %}
+def _memoize(func):
+    def memoize_wrapper(self):
+        pos = self.pos
+        key = (func, pos)
+
+        if key in self._memos:
+            result, new_pos = self._memos[key]
+            self.pos = new_pos
+            return result
+
+        result = func(self)
+        pos = self.pos
+        key = (func, pos)
+        self._memos[key] = result
+
+    return memoize_wrapper
+{% endif %}
+
+class {{ name }}Parser(_Parser):
+    def __init__(self, tokenizer: Tokenizer):
+        super().__init__(tokenizer)
+{% if memoize %}
+        self._memos: Dict[Tuple[Callable, int], Any] = {}
+{% endif %}
+
+{% for func in functions %}
+{% if memoize %}    @_memoize{% endif %}
+{{ func }}
+{% endfor %}

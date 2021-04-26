@@ -34,8 +34,8 @@ if __name__ == "__main__":
     grammar = ToAST().transform(tree)
     print("AST: ", grammar)
 
-    emitter = PyCodeEmitter(PyParseTreeMaker())
-    parser_str, debug = ParserGen(emitter).generate("<TODO>", grammar)
+    emitter = PyCodeEmitter(PyParseTreeMaker(), memoize=True)
+    parser_str, debug = ParserGen(emitter).generate("TODO", grammar)
 
     # print(debug)
-    print("Parser:\n\n", parser_str)
+    print(parser_str)
