@@ -111,7 +111,7 @@ class _FuncGen:
         self._next_sub = sub
         self._depth = depth
 
-        self._func_emitter: FuncEmitter = None  # type: ignore
+        self._func_emitter: FuncEmitter
         self._debug_pieces: List[str] = []
 
     def _debug(self, msg: str):
@@ -253,9 +253,9 @@ class _FuncGen:
         self._emit_token_match(tr.name, match, ret)
 
     def _gen_token_lit(self, tl: TokenLit, match: Match, ret: bool):
-        self._debug(f"TokenLit {tl.literal} ({match} ret:{ret})\n")
-        # TODO: Figure out how to map literal to token name (likely ahead of time)
-        self._emit_token_match(f"<{tl.literal}>", match, ret)
+        raise AssertionError(
+            "Token literals cannot be generated - they should be replaced during AST processing"
+        )
 
 
 class ParserGen:

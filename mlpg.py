@@ -4,6 +4,7 @@ from lark import Lark
 
 from mlpg.ast import ToAST
 from mlpg.parsergen import ParserGen
+from mlpg.process import Process
 from runtime.python.emitter import PyCodeEmitter, PyParseTreeMaker
 
 _PARSER = "mlpg.lark"
@@ -29,13 +30,20 @@ if __name__ == "__main__":
     # NOTE: We don't need the parse tree, but passing current transformer
     # directly into parser yields an exception - no big deal, keep as is for now
     tree = parser.parse(src)
-    print("Parse Tree: ", tree)
+    print(f"Parse Tree: {tree}\n")
 
     grammar = ToAST().transform(tree)
-    print("AST: ", grammar)
+    print(f"AST: {grammar}\n")
+
+    new_grammar, errors = Process(grammar).process()
+    if errors:
+        err = "\n".join(errors)
+        print(f"Errors:\n{err}")
+        sys.exit(1)
+    print(f"New AST: {new_grammar}\n")
 
     emitter = PyCodeEmitter(PyParseTreeMaker(), memoize=True)
-    parser_str, debug = ParserGen(emitter).generate("TODO", grammar)
+    parser_str, debug = ParserGen(emitter).generate("TODO", new_grammar)
 
     # print(debug)
-    print(parser_str)
+    print(f"Parser: {parser_str}\n")

@@ -4,3 +4,13 @@ list : "[" [value ("," value)*] "]";
 
 dict : "{" [pair ("," pair)*] "}";
 pair : STRING ":" value;
+
+TRUE: "true";
+FALSE: "false";
+NULL: "null";
+LBRACKET: "[";
+RBRACKET: "]";
+LBRACE: "{";
+RBRACE: "}";
+COMMA: ",";
+COLON: ":";

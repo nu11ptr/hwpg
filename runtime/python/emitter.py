@@ -4,7 +4,7 @@ from mlpg.parsergen import BaseFuncEmitter, FuncEmitter, Jinja2CodeEmitter, Tree
 class PyFuncEmitter(BaseFuncEmitter):
     def __init__(self, name: str, ret_type: str):
         super().__init__(name, ret_type)
-        self._func_parts.append(f"    def {name}(self) -> {ret_type}\n")
+        self._func_parts.append(f"    def {name}(self) -> {ret_type}:\n")
 
     def match_token(self, name: str, ret: bool):
         self._func_parts.append(f"        match_token(name={name}, ret={ret})\n")

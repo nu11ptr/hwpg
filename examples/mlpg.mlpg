@@ -1,4 +1,8 @@
-grammar: rule*;
+# *** Parser rules ***
+
+### Parser ###
+
+grammar: (rule | token_rule)*;
 
 rule: RULE_NAME ":" rule_body ";";
 
@@ -9,3 +13,14 @@ rule_part: rule_elem [suffix] | LBRACKET rule_body RBRACKET;
 rule_elem: "(" rule_body ")" | RULE_NAME | TOKEN_NAME | TOKEN_LIT;
 
 suffix: PLUS | STAR | QUEST_MARK;
+
+### Lexer ###
+
+token_rule: TOKEN_NAME ":" TOKEN_LIT ";";
+
+# *** Lexer rules ***
+
+COLON: ":";
+SEMI: ";";
+LPAREN: "(";
+RPAREN: ")";

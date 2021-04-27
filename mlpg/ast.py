@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, List
+from typing import Any, List, Union
 
 from lark import Token, Transformer
 
@@ -63,10 +63,18 @@ class Rule:
     rules: RuleBody
 
 
+# token_rule
+@dataclass
+class TokenRule:
+    name: str
+    literal: str  # For now, will evolve into more
+
+
 # grammar
 @dataclass
 class Grammar:
     rules: List[Rule]
+    token_rules: List[TokenRule]
 
 
 class ToAST(Transformer):
@@ -79,8 +87,21 @@ class ToAST(Transformer):
     def TOKEN_LIT(self, token: Token) -> TokenLit:
         return TokenLit(token.value)
 
-    def grammar(self, rules: List[Rule]) -> Grammar:
-        return Grammar(rules)
+    def grammar(self, rules: List[Union[Rule, TokenRule]]) -> Grammar:
+        parse_rules, token_rules = [], []
+
+        for rule in rules:
+            if isinstance(rule, Rule):
+                parse_rules.append(rule)
+            elif isinstance(rule, TokenRule):
+                token_rules.append(rule)
+            else:
+                raise AssertionError("Unknown object")
+
+        return Grammar(parse_rules, token_rules)
+
+    def token_rule(self, args: List[Any]) -> TokenRule:
+        return TokenRule(args[0].name, args[1].literal)
 
     def rule(self, args: List[Any]) -> Rule:
         return Rule(args[0].name, args[1])
