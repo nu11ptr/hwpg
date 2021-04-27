@@ -58,7 +58,11 @@ class CodeEmitter(Protocol):
     def emit(self) -> str:
         ...
 
-    def start_rule(self, name: str, sub: int = 0, depth: int = 0) -> FuncEmitter:
+    @staticmethod
+    def make_func_name(name: str, sub: int = 0, depth: int = 0) -> str:
+        ...
+
+    def start_rule(self, name: str) -> FuncEmitter:
         ...
 
     def end_rule(self, emitter: FuncEmitter):
@@ -124,9 +128,10 @@ class _FuncGen:
         returns a tuple of the generated function string and the next sub #
         """
         # Start new function
-        self._func_emitter = self._emitter.start_rule(
+        func_name = self._emitter.make_func_name(
             self._name, self._next_sub, self._depth
         )
+        self._func_emitter = self._emitter.start_rule(func_name)
         func_name = self._func_emitter.name
         self._next_sub += 1
         self._debug_pieces = []
@@ -153,7 +158,7 @@ class _FuncGen:
 
             # Early return on all but last alternative if we have a single seq
             last_alt = (num_alts - 1) == i
-            ret = not last_alt and num_parts == 1
+            early_ret = num_parts == 1
 
             # Sub-function needed? Only if multiple alternatives AND multiple parts
             if num_alts > 1 and num_parts > 1:
@@ -162,16 +167,16 @@ class _FuncGen:
                 )
                 sub_name, self._next_sub = sub_func.generate([alt])
                 match = Match.ZERO_OR_ONCE if not last_alt else Match.ONCE
-                self._gen_sub_rule_ref(sub_name, match, ret)
+                self._gen_sub_rule_ref(sub_name, match, early_ret)
             # Otherwise we can process each part independently
             else:
                 for part in alt:
-                    self._debug(f"Alt {i} Next Part (Return: {ret})\n")
+                    self._debug(f"Alt {i} Next Part (Early return: {early_ret})\n")
                     self._gen_node(
                         part,
                         # NOTE: Only applies for a non-container
                         Match.ZERO_OR_ONCE if not last_alt else Match.ONCE,
-                        ret,
+                        early_ret,
                     )
 
     def _gen_node(self, node: Node, match: Match, ret: bool):
@@ -196,8 +201,6 @@ class _FuncGen:
 
     def _gen_rule_body(self, body: RuleBody, match: Match, ret: bool):
         # Any time we process a new nested rule body, we need a new sub-function
-        # FIXME: What if it has one part in one alt? (correct this before parser gen)
-
         sub_func = _FuncGen(
             self._name, self._emitter, self._debugs, self._next_sub, self._depth + 1
         )
@@ -234,7 +237,7 @@ class _FuncGen:
 
     def _gen_rule_ref(self, rr: RuleRef, match: Match, ret: bool):
         self._debug(f"RuleRef {rr.name} ({match} ret:{ret})\n")
-        self._emit_rule_match(self._func_emitter.name, match, ret)
+        self._emit_rule_match(self._emitter.make_func_name(rr.name), match, ret)
 
     def _emit_token_match(self, name: str, match: Match, ret: bool):
         if match == Match.ONCE:

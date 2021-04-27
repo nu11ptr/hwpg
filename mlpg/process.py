@@ -77,10 +77,9 @@ class Process:
 
         # If only 1 alternative and 1 part we don't need the RuleBody
         # so optimize it away
-        # TODO: Make sure this is safe in all cases before enabling
-        # Another option: Enable optimization only when parent is None
-        # if len(alts) == 1 and len(alts[0]) == 1:
-        #    return self._process_node(alts[0], parent=body)  # type: ignore
+        # TODO: Make sure this is safe without parent before enabling
+        if len(alts) == 1 and len(alts[0]) == 1 and parent is not None:
+            return self._process_node(alts[0][0], parent=body)  # type: ignore
 
         new_alts: List[List[Node]] = []
 

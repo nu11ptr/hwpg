@@ -49,13 +49,13 @@ class PyCodeEmitter(Jinja2CodeEmitter):
         self._tree_maker = tree_maker
         self._vars["memoize"] = memoize
 
-    def _make_func_name(self, name: str, sub: int, depth: int) -> str:
+    @staticmethod
+    def make_func_name(name: str, sub: int = 0, depth: int = 0) -> str:
         return f"_parse_{name}_sub{sub}_depth{depth}" if sub > 0 else f"parse_{name}"
 
-    def start_rule(self, name: str, sub: int = 0, depth: int = 0) -> FuncEmitter:
-        func_name = self._make_func_name(name, sub, depth)
-        ret_type = self._tree_maker.return_type(func_name)
-        return PyFuncEmitter(func_name, ret_type)
+    def start_rule(self, name: str) -> FuncEmitter:
+        ret_type = self._tree_maker.return_type(name)
+        return PyFuncEmitter(name, ret_type)
 
     def end_rule(self, emitter: FuncEmitter):
         self._funcs.append(emitter.emit())
