@@ -158,7 +158,6 @@ class _FuncGen:
 
             # Early return on all but last alternative if we have a single seq
             last_alt = (num_alts - 1) == i
-            early_ret = num_parts == 1
 
             # Sub-function needed? Only if multiple alternatives AND multiple parts
             if num_alts > 1 and num_parts > 1:
@@ -167,9 +166,11 @@ class _FuncGen:
                 )
                 sub_name, self._next_sub = sub_func.generate([alt])
                 match = Match.ZERO_OR_ONCE if not last_alt else Match.ONCE
-                self._gen_sub_rule_ref(sub_name, match, early_ret)
+                self._gen_sub_rule_ref(sub_name, match, True)
             # Otherwise we can process each part independently
             else:
+                early_ret = num_parts == 1
+
                 for part in alt:
                     self._debug(f"Alt {i} Next Part (Early return: {early_ret})\n")
                     self._gen_node(
