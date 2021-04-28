@@ -36,6 +36,15 @@ class _Parser:
         self._next_token()
         return tok
 
+    def _match_tokens_or_rollback(self, tt: TokenType, old_pos: int) -> List[Token]:
+        token = self._match_token_or_rollback(tt, old_pos)
+        if not token:
+            self.pos = old_pos
+            return []
+
+        tokens = self._try_match_tokens(tt)
+        return [token, *tokens]
+
     def _try_match_token(self, tt: TokenType) -> Optional[Token]:
         tok = self._curr_token()
 
@@ -44,6 +53,17 @@ class _Parser:
 
         self._next_token()
         return tok
+
+    def _try_match_tokens(self, tt: TokenType) -> List[Token]:
+        tokens: List[Token] = []
+        
+        while True:
+            tok = self._try_match_token(tt)
+            if not tok:
+                break
+            tokens.append(tok)
+
+        return tokens
 
 {% if memoize %}
 def _memoize(func):

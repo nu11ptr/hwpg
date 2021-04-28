@@ -75,7 +75,11 @@ class BaseFuncEmitter:
         self.ret_type = ret_type
         self._func_parts: List[str] = []
 
+    def _end_func(self):
+        pass
+
     def emit(self) -> str:
+        self._end_func()
         return "".join(self._func_parts)
 
 
@@ -88,7 +92,11 @@ class Jinja2CodeEmitter:
         self._vars: Dict[str, Any] = {}
         self._funcs: List[str] = []
 
+    def _end_code(self):
+        pass
+
     def emit(self) -> str:
+        self._end_code()
         self._vars["functions"] = self._funcs
         return self._main_templ.render(**self._vars)
 
