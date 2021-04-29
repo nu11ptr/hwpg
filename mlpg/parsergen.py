@@ -184,7 +184,7 @@ class _FuncGen:
                     self._gen_node(
                         part,
                         # NOTE: Only applies for a non-container
-                        Match.ZERO_OR_ONCE if not last_alt else Match.ONCE,
+                        Match.ZERO_OR_ONCE if early_ret or not last_alt else Match.ONCE,
                         early_ret,
                     )
 
