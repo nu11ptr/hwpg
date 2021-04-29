@@ -25,32 +25,33 @@ class TreeMaker(Protocol):
 class FuncEmitter(Protocol):
     name: str
     ret_type: str
+    early_ret: bool
 
     def emit(self) -> str:
         ...
 
-    def match_token(self, name: str, early_ret: bool):
+    def match_token(self, name: str):
         ...
 
-    def match_token_zero_or_one(self, name: str, early_ret: bool):
+    def match_token_zero_or_one(self, name: str):
         ...
 
-    def match_token_zero_or_more(self, name: str, early_ret: bool):
+    def match_token_zero_or_more(self, name: str):
         ...
 
-    def match_token_one_or_more(self, name: str, early_ret: bool):
+    def match_token_one_or_more(self, name: str):
         ...
 
-    def parse_rule(self, name: str, early_ret: bool):
+    def parse_rule(self, name: str):
         ...
 
-    def parse_rule_zero_or_one(self, name: str, early_ret: bool):
+    def parse_rule_zero_or_one(self, name: str):
         ...
 
-    def parse_rule_zero_or_more(self, name: str, early_ret: bool):
+    def parse_rule_zero_or_more(self, name: str):
         ...
 
-    def parse_rule_one_or_more(self, name: str, early_ret: bool):
+    def parse_rule_one_or_more(self, name: str):
         ...
 
 
@@ -62,7 +63,7 @@ class CodeEmitter(Protocol):
     def make_func_name(name: str, sub: int = 0, depth: int = 0) -> str:
         ...
 
-    def start_func(self, name: str) -> FuncEmitter:
+    def start_func(self, name: str, early_ret: bool) -> FuncEmitter:
         ...
 
     def end_func(self, emitter: FuncEmitter):
@@ -70,9 +71,14 @@ class CodeEmitter(Protocol):
 
 
 class BaseFuncEmitter:
-    def __init__(self, name: str, ret_type: str):
+    def __init__(
+        self, name: str, ret_type: str, early_ret: bool, tree_maker: TreeMaker
+    ):
         self.name = name
         self.ret_type = ret_type
+        self.early_ret = early_ret
+        self._tree_maker = tree_maker
+
         self._func_parts: List[str] = []
 
     def _end_func(self):
@@ -139,7 +145,7 @@ class _FuncGen:
         func_name = self._emitter.make_func_name(
             self._name, self._next_sub, self._depth
         )
-        self._func_emitter = self._emitter.start_func(func_name)
+        self._func_emitter = self._emitter.start_func(func_name, len(nodes) > 1)
         func_name = self._func_emitter.name
         self._next_sub += 1
         self._debug_pieces = []
@@ -157,6 +163,7 @@ class _FuncGen:
 
     def _gen_nodes(self, nodes: List[List[Node]]):
         num_alts = len(nodes)
+        early_ret = num_alts > 1
 
         # Process all nodes
         for i, alt in enumerate(nodes):
@@ -164,107 +171,101 @@ class _FuncGen:
 
             self._debug(f"Alternative {i}\n")
 
-            # Early return on all but last alternative if we have a single seq
-            last_alt = (num_alts - 1) == i
-
             # Sub-function needed? Only if multiple alternatives AND multiple parts
             if num_alts > 1 and num_parts > 1:
                 sub_func = _FuncGen(
                     self._name, self._emitter, self._debugs, self._next_sub, self._depth
                 )
                 sub_name, self._next_sub = sub_func.generate([alt])
-                match = Match.ZERO_OR_ONCE if not last_alt else Match.ONCE
-                self._gen_sub_rule_ref(sub_name, match, True)
+                match = Match.ZERO_OR_ONCE
+                self._gen_sub_rule_ref(sub_name, match)
             # Otherwise we can process each part independently
             else:
-                early_ret = num_parts == 1
-
                 for part in alt:
-                    self._debug(f"Alt {i} Next Part (Early return: {early_ret})\n")
+                    self._debug(f"Alt {i} Next Part\n")
                     self._gen_node(
                         part,
                         # NOTE: Only applies for a non-container
-                        Match.ZERO_OR_ONCE if early_ret or not last_alt else Match.ONCE,
-                        early_ret,
+                        Match.ZERO_OR_ONCE if early_ret else Match.ONCE,
                     )
 
-    def _gen_node(self, node: Node, match: Match, early_ret: bool):
+    def _gen_node(self, node: Node, match: Match):
         type_ = type(node)
 
         if type_ is RuleBody:
-            self._gen_rule_body(node, match, early_ret)  # type: ignore
+            self._gen_rule_body(node, match)  # type: ignore
         elif type_ is ZeroOrMore:
-            self._gen_zero_or_more(node, early_ret)  # type: ignore
+            self._gen_zero_or_more(node)  # type: ignore
         elif type_ is OneOrMore:
-            self._gen_one_or_more(node, early_ret)  # type: ignore
+            self._gen_one_or_more(node)  # type: ignore
         elif type_ is ZeroOrOne:
-            self._gen_zero_or_one(node, early_ret)  # type: ignore
+            self._gen_zero_or_one(node)  # type: ignore
         elif type_ is RuleRef:
-            self._gen_rule_ref(node, match, early_ret)  # type: ignore
+            self._gen_rule_ref(node, match)  # type: ignore
         elif type_ is TokenRef:
-            self._gen_token_ref(node, match, early_ret)  # type: ignore
+            self._gen_token_ref(node, match)  # type: ignore
         elif type_ is TokenLit:
-            self._gen_token_lit(node, match, early_ret)  # type: ignore
+            self._gen_token_lit(node, match)  # type: ignore
         else:
             raise AssertionError(f"Unknown node type: {type_}")
 
-    def _gen_rule_body(self, body: RuleBody, match: Match, early_ret: bool):
+    def _gen_rule_body(self, body: RuleBody, match: Match):
         # Any time we process a new nested rule body, we need a new sub-function
         sub_func = _FuncGen(
             self._name, self._emitter, self._debugs, self._next_sub, self._depth + 1
         )
         sub_name, self._next_sub = sub_func.generate(body.rules)
-        self._gen_sub_rule_ref(sub_name, match, early_ret)
+        self._gen_sub_rule_ref(sub_name, match)
 
-    def _gen_zero_or_more(self, zom: ZeroOrMore, early_ret: bool):
+    def _gen_zero_or_more(self, zom: ZeroOrMore):
         self._debug("ZeroOrMore\n")
-        self._gen_node(zom.node, Match.ZERO_OR_MORE, early_ret)
+        self._gen_node(zom.node, Match.ZERO_OR_MORE)
 
-    def _gen_one_or_more(self, oom: OneOrMore, early_ret: bool):
+    def _gen_one_or_more(self, oom: OneOrMore):
         self._debug("OneOrMore\n")
-        self._gen_node(oom.node, Match.ONCE_OR_MORE, early_ret)
+        self._gen_node(oom.node, Match.ONCE_OR_MORE)
 
-    def _gen_zero_or_one(self, zoo: ZeroOrOne, early_ret: bool):
+    def _gen_zero_or_one(self, zoo: ZeroOrOne):
         self._debug("ZeroOrOne\n")
-        self._gen_node(zoo.node, Match.ZERO_OR_ONCE, early_ret)
+        self._gen_node(zoo.node, Match.ZERO_OR_ONCE)
 
-    def _emit_rule_match(self, name: str, match: Match, early_ret: bool):
+    def _emit_rule_match(self, name: str, match: Match):
         if match == Match.ONCE:
-            self._func_emitter.parse_rule(name, early_ret)
+            self._func_emitter.parse_rule(name)
         elif match == Match.ZERO_OR_ONCE:
-            self._func_emitter.parse_rule_zero_or_one(name, early_ret)
+            self._func_emitter.parse_rule_zero_or_one(name)
         elif match == Match.ZERO_OR_MORE:
-            self._func_emitter.parse_rule_zero_or_more(name, early_ret)
+            self._func_emitter.parse_rule_zero_or_more(name)
         elif match == Match.ONCE_OR_MORE:
-            self._func_emitter.parse_rule_one_or_more(name, early_ret)
+            self._func_emitter.parse_rule_one_or_more(name)
         else:
             raise AssertionError(f"Unknown match value: {match}")
 
-    def _gen_sub_rule_ref(self, name: str, match: Match, early_ret: bool):
-        self._debug(f"Sub-rule {name} ({match} ret:{early_ret})\n")
-        self._emit_rule_match(name, match, early_ret)
+    def _gen_sub_rule_ref(self, name: str, match: Match):
+        self._debug(f"Sub-rule {name} ({match}\n")
+        self._emit_rule_match(name, match)
 
-    def _gen_rule_ref(self, rr: RuleRef, match: Match, early_ret: bool):
-        self._debug(f"RuleRef {rr.name} ({match} ret:{early_ret})\n")
-        self._emit_rule_match(self._emitter.make_func_name(rr.name), match, early_ret)
+    def _gen_rule_ref(self, rr: RuleRef, match: Match):
+        self._debug(f"RuleRef {rr.name} ({match}\n")
+        self._emit_rule_match(self._emitter.make_func_name(rr.name), match)
 
-    def _emit_token_match(self, name: str, match: Match, early_ret: bool):
+    def _emit_token_match(self, name: str, match: Match):
         if match == Match.ONCE:
-            self._func_emitter.match_token(name, early_ret)
+            self._func_emitter.match_token(name)
         elif match == Match.ZERO_OR_ONCE:
-            self._func_emitter.match_token_zero_or_one(name, early_ret)
+            self._func_emitter.match_token_zero_or_one(name)
         elif match == Match.ZERO_OR_MORE:
-            self._func_emitter.match_token_zero_or_more(name, early_ret)
+            self._func_emitter.match_token_zero_or_more(name)
         elif match == Match.ONCE_OR_MORE:
-            self._func_emitter.match_token_one_or_more(name, early_ret)
+            self._func_emitter.match_token_one_or_more(name)
         else:
             raise AssertionError(f"Unknown match value: {match}")
 
-    def _gen_token_ref(self, tr: TokenRef, match: Match, early_ret: bool):
-        self._debug(f"TokenRef {tr.name} ({match} ret:{early_ret})\n")
-        self._emit_token_match(tr.name, match, early_ret)
+    def _gen_token_ref(self, tr: TokenRef, match: Match):
+        self._debug(f"TokenRef {tr.name} ({match})\n")
+        self._emit_token_match(tr.name, match)
 
-    def _gen_token_lit(self, tl: TokenLit, match: Match, early_ret: bool):
+    def _gen_token_lit(self, tl: TokenLit, match: Match):
         raise AssertionError(
             "Token literals cannot be generated - they should be replaced during AST processing"
         )
