@@ -79,7 +79,19 @@ class BaseFuncEmitter:
         self.early_ret = early_ret
         self._tree_maker = tree_maker
 
+        self._vars: List[str] = []
         self._func_parts: List[str] = []
+
+    def _new_var(self, name: str) -> str:
+        new_name = name
+        idx = 1
+
+        while new_name in self._vars:
+            idx += 1
+            new_name = name + str(idx)
+
+        self._vars.append(new_name)
+        return new_name
 
     def _end_func(self):
         pass

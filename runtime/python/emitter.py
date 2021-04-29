@@ -1,11 +1,20 @@
+from typing import List
+
 from jinja2 import Template
 
 from mlpg.parsergen import BaseFuncEmitter, FuncEmitter, Jinja2CodeEmitter, TreeMaker
 
-_FUNC_START = """    def {{ name }}(self) -> {{ ret_type }}:
+_FUNC_START = """    def {{ name }}(self) -> Optional[{{ ret_type }}]:
         old_pos = self.pos
 
 
+"""
+
+_FUNC_END_EARLY_RET = """        self.pos = old_pos
+        return None
+"""
+
+_FUNC_END = """        return Tree({{ vars }})
 """
 
 _MATCH_TOKEN = """        {{ var }} = self._match_token_or_rollback(TokenType.{{ name }}, old_pos)
@@ -26,19 +35,19 @@ _MATCH_TOKEN_ZERO_OR_ONE = """        {{ var }} = self._try_match_token(TokenTyp
 
 """
 
-_MATCH_TOKEN_ZERO_OR_MORE = """        {{ var }}_list = self._try_match_tokens(TokenType.{{ name }})
+_MATCH_TOKEN_ZERO_OR_MORE = """        {{ var }} = self._try_match_tokens(TokenType.{{ name }})
 {%- if early_ret %}
-        if {{ var }}_list:
-            return {{ var }}_list
+        if {{ var }}:
+            return {{ var }}
 {% endif %}
 
 """
 
-_MATCH_TOKEN_ONE_OR_MORE = """        {{ var }}_list = self._match_tokens_or_rollback(TokenType.{{ name }}, old_pos)
+_MATCH_TOKEN_ONE_OR_MORE = """        {{ var }} = self._match_tokens_or_rollback(TokenType.{{ name }}, old_pos)
 {%- if early_ret %}
-        return {{ var }}_list if {{ var }}_list else None
+        return {{ var }} if {{ var }} else None
 {% else %}
-        if not {{ var }}_list:
+        if not {{ var }}:
             return None
 {% endif %}
 
@@ -62,31 +71,31 @@ _MATCH_RULE_ZERO_OR_ONE = """        {{ var }} = self.{{ func }}(self)
 
 """
 
-_MATCH_RULE_ZERO_OR_MORE = """        {{ var }}_list: List[{{ ret_type }}] = []
+_MATCH_RULE_ZERO_OR_MORE = """        {{ var }}: List[{{ ret_type }}] = []
         while True:
-            {{ var }} = self.{{ func }}(self)
-            if not {{ var }}:
+            {{ temp_var }} = self.{{ func }}(self)
+            if not {{ temp_var }}:
                 break
-            {{ var }}_list.append(var)
+            {{ var }}.append({{ temp_var }})
 {% if early_ret %}
-        if {{ var }}_list:
-            return {{ var }}_list
+        if {{ var }}:
+            return {{ var }}
 {% endif %}
 
 """
 
-_MATCH_RULE_ONE_OR_MORE = """        {{ var }}_list: List[{{ ret_type }}] = []
+_MATCH_RULE_ONE_OR_MORE = """        {{ var }}: List[{{ ret_type }}] = []
         while True:
-            {{ var }} = self.{{ func }}(self)
-            if not {{ var }}:
+            {{ temp_var }} = self.{{ func }}(self)
+            if not {{ temp_var }}:
                 break
-            {{ var }}_list.append(var)
+            {{ var }}.append({{ temp_var }})
 
-        if not {{ var }}_list:
+        if not {{ var }}:
             self.pos = old_pos
             return None
 {% if early_ret %}
-        return {{ var }}_list
+        return {{ var }}
 {% endif %}
 
 """
@@ -101,6 +110,13 @@ class PyFuncEmitter(BaseFuncEmitter):
         templ = Template(_FUNC_START)
         self._func_parts.append(templ.render(name=name, ret_type=ret_type))
 
+    def _end_func(self):
+        if self.early_ret:
+            self._func_parts.append(_FUNC_END_EARLY_RET)
+        else:
+            templ = Template(_FUNC_END)
+            self._func_parts.append(templ.render(vars=", ".join(self._vars)))
+
     @staticmethod
     def _strip_func_prefix(name: str) -> str:
         # Remove 'parse_' (6 chars) or '_parse_' prefix (7 chars)
@@ -108,59 +124,75 @@ class PyFuncEmitter(BaseFuncEmitter):
 
     def match_token(self, name: str):
         templ = Template(_MATCH_TOKEN)
+        var = self._new_var(name.lower())
         self._func_parts.append(
-            templ.render(name=name, var=name.lower(), early_ret=self.early_ret)
+            templ.render(name=name, var=var, early_ret=self.early_ret)
         )
 
     def match_token_zero_or_one(self, name: str):
         templ = Template(_MATCH_TOKEN_ZERO_OR_ONE)
+        var = self._new_var(name.lower())
         self._func_parts.append(
-            templ.render(name=name, var=name.lower(), early_ret=self.early_ret)
+            templ.render(name=name, var=var, early_ret=self.early_ret)
         )
 
     def match_token_zero_or_more(self, name: str):
         templ = Template(_MATCH_TOKEN_ZERO_OR_MORE)
+        var = self._new_var(name.lower() + "_list")
         self._func_parts.append(
-            templ.render(name=name, var=name.lower(), early_ret=self.early_ret)
+            templ.render(name=name, var=var, early_ret=self.early_ret)
         )
 
     def match_token_one_or_more(self, name: str):
         templ = Template(_MATCH_TOKEN_ONE_OR_MORE)
+        var = self._new_var(name.lower() + "_list")
         self._func_parts.append(
-            templ.render(name=name, var=name.lower(), early_ret=self.early_ret)
+            templ.render(name=name, var=var, early_ret=self.early_ret)
         )
 
     def parse_rule(self, name: str):
         templ = Template(_MATCH_RULE)
-        var = self._strip_func_prefix(name)
+        var = self._new_var(self._strip_func_prefix(name))
         self._func_parts.append(
             templ.render(var=var, func=name, early_ret=self.early_ret)
         )
 
     def parse_rule_zero_or_one(self, name: str):
         templ = Template(_MATCH_RULE_ZERO_OR_ONE)
-        var = self._strip_func_prefix(name)
+        var = self._new_var(self._strip_func_prefix(name))
         self._func_parts.append(
             templ.render(var=var, func=name, early_ret=self.early_ret)
         )
 
     def parse_rule_zero_or_more(self, name: str):
         templ = Template(_MATCH_RULE_ZERO_OR_MORE)
-        var = self._strip_func_prefix(name)
+        temp_var = self._strip_func_prefix(name)
+        var = self._new_var(temp_var + "_list")
         ret_type = self._tree_maker.return_type(name)
+
         self._func_parts.append(
             templ.render(
-                var=var, func=name, early_ret=self.early_ret, ret_type=ret_type
+                temp_var=temp_var,
+                var=var,
+                func=name,
+                early_ret=self.early_ret,
+                ret_type=ret_type,
             )
         )
 
     def parse_rule_one_or_more(self, name: str):
         templ = Template(_MATCH_RULE_ONE_OR_MORE)
-        var = self._strip_func_prefix(name)
+        temp_var = self._strip_func_prefix(name)
+        var = self._new_var(temp_var + "_list")
         ret_type = self._tree_maker.return_type(name)
+
         self._func_parts.append(
             templ.render(
-                var=var, func=name, early_ret=self.early_ret, ret_type=ret_type
+                temp_var=temp_var,
+                var=var,
+                func=name,
+                early_ret=self.early_ret,
+                ret_type=ret_type,
             )
         )
 
