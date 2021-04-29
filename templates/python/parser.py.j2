@@ -1,8 +1,8 @@
-{% if memoize %}
+{%- if memoize %}
 from typing import Callable, Dict, List, Optional, Tuple
-{% else %}
+{%- else %}
 from typing import List, Optional
-{% endif %}
+{%- endif %}
 
 from .lexer import Token, TokenType, Tokenizer
 
@@ -87,9 +87,9 @@ def _memoize(func):
 class {{ name }}Parser(_Parser):
     def __init__(self, tokenizer: Tokenizer):
         super().__init__(tokenizer)
-{% if memoize %}
+{%- if memoize %}
         self._memos: Dict[Tuple[Callable, int], Any] = {}
-{% endif %}
+{%- endif %}
 
 {% for func in functions %}
 {% if memoize %}    @_memoize{% endif %}
