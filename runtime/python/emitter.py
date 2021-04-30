@@ -53,7 +53,7 @@ _MATCH_TOKEN_ONE_OR_MORE = """        {{ var }} = self._match_tokens_or_rollback
 
 """
 
-_MATCH_RULE = """        {{ var }} = self.{{ func }}(self)
+_MATCH_RULE = """        {{ var }} = self.{{ func }}()
         if not {{ var }}:
             self.pos = old_pos
             return None
@@ -63,7 +63,7 @@ _MATCH_RULE = """        {{ var }} = self.{{ func }}(self)
 
 """
 
-_MATCH_RULE_ZERO_OR_ONE = """        {{ var }} = self.{{ func }}(self)
+_MATCH_RULE_ZERO_OR_ONE = """        {{ var }} = self.{{ func }}()
 {%- if early_ret %}
         if {{ var }}:
             return {{ var }}
@@ -73,7 +73,7 @@ _MATCH_RULE_ZERO_OR_ONE = """        {{ var }} = self.{{ func }}(self)
 
 _MATCH_RULE_ZERO_OR_MORE = """        {{ var }}: List[{{ ret_type }}] = []
         while True:
-            {{ temp_var }} = self.{{ func }}(self)
+            {{ temp_var }} = self.{{ func }}()
             if not {{ temp_var }}:
                 break
             {{ var }}.append({{ temp_var }})
@@ -86,7 +86,7 @@ _MATCH_RULE_ZERO_OR_MORE = """        {{ var }}: List[{{ ret_type }}] = []
 
 _MATCH_RULE_ONE_OR_MORE = """        {{ var }}: List[{{ ret_type }}] = []
         while True:
-            {{ temp_var }} = self.{{ func }}(self)
+            {{ temp_var }} = self.{{ func }}()
             if not {{ temp_var }}:
                 break
             {{ var }}.append({{ temp_var }})
