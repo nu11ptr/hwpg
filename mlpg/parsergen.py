@@ -4,11 +4,12 @@ from typing import Any, Dict, List, Protocol, Tuple
 from jinja2 import Environment, FileSystemLoader
 
 from mlpg.ast import (
+    Alternatives,
     Grammar,
+    MultipartBody,
     Node,
     OneOrMore,
     Rule,
-    RuleBody,
     RuleRef,
     TokenLit,
     TokenRef,
@@ -151,22 +152,24 @@ class _FuncGen:
         self._debug_pieces.append(" " * self._depth * 4)
         self._debug_pieces.append(msg)
 
-    def generate(self, nodes: List[List[Node]]) -> Tuple[str, int]:
+    def generate(self, node: Node) -> Tuple[str, int]:
         """
-        Generates a new parser function (sub == 0) or sub-function (sub > 0). It
-        returns a tuple of the generated function string and the next sub #
+        Generates a new parser function. It returns a tuple of the generated
+        function string and the next sub #
         """
-        # Start new function
+        # Start new code function
         func_name = self._emitter.make_func_name(
             self._name, self._next_sub, self._depth
         )
-        self._func_emitter = self._emitter.start_func(func_name, len(nodes) > 1)
+        # Only a multipart body disallows early return
+        early_ret = not isinstance(node, MultipartBody)
+        self._func_emitter = self._emitter.start_func(func_name, early_ret)
         func_name = self._func_emitter.name
         self._next_sub += 1
         self._debug_pieces = []
         self._debug(f"Start func: {func_name}\n")
 
-        self._gen_nodes(nodes)
+        self._gen_node(node, top_level=True)
 
         # End new function
         self._debug(f"End func: {func_name}\n")
@@ -176,39 +179,21 @@ class _FuncGen:
         self._debugs.append("".join(self._debug_pieces))
         return func_name, self._next_sub
 
-    def _gen_nodes(self, nodes: List[List[Node]]):
-        num_alts = len(nodes)
-        early_ret = num_alts > 1
-
-        # Process all nodes
-        for i, alt in enumerate(nodes):
-            num_parts = len(alt)
-
-            self._debug(f"Alternative {i}\n")
-
-            # Sub-function needed? Only if multiple alternatives AND multiple parts
-            if num_alts > 1 and num_parts > 1:
-                sub_func = _FuncGen(
-                    self._name, self._emitter, self._debugs, self._next_sub, self._depth
-                )
-                sub_name, self._next_sub = sub_func.generate([alt])
-                match = Match.ZERO_OR_ONCE
-                self._gen_sub_rule_ref(sub_name, match)
-            # Otherwise we can process each part independently
-            else:
-                for part in alt:
-                    self._debug(f"Alt {i} Next Part\n")
-                    self._gen_node(
-                        part,
-                        # NOTE: Only applies for a non-container
-                        Match.ZERO_OR_ONCE if early_ret else Match.ONCE,
-                    )
-
-    def _gen_node(self, node: Node, match: Match):
+    def _gen_node(self, node: Node, match: Match = Match.ONCE, top_level: bool = False):
         type_ = type(node)
 
-        if type_ is RuleBody:
-            self._gen_rule_body(node, match)  # type: ignore
+        if type_ is Alternatives:
+            if top_level:
+                self._gen_alternatives(node)  # type: ignore
+            else:
+                # Always generate a sub-rule for nested alternative rules
+                self._gen_sub_rule_ref(node, match)
+        elif type_ is MultipartBody:
+            if top_level:
+                self._gen_multipart_body(node)  # type: ignore
+            else:
+                # Always generate a sub-rule for nested multipart rules
+                self._gen_sub_rule_ref(node, match)
         elif type_ is ZeroOrMore:
             self._gen_zero_or_more(node)  # type: ignore
         elif type_ is OneOrMore:
@@ -224,13 +209,13 @@ class _FuncGen:
         else:
             raise AssertionError(f"Unknown node type: {type_}")
 
-    def _gen_rule_body(self, body: RuleBody, match: Match):
-        # Any time we process a new nested rule body, we need a new sub-function
-        sub_func = _FuncGen(
-            self._name, self._emitter, self._debugs, self._next_sub, self._depth + 1
-        )
-        sub_name, self._next_sub = sub_func.generate(body.rules)
-        self._gen_sub_rule_ref(sub_name, match)
+    def _gen_alternatives(self, alts: Alternatives):
+        for alt in alts.nodes:
+            self._gen_node(alt, Match.ZERO_OR_ONCE)
+
+    def _gen_multipart_body(self, body: MultipartBody):
+        for part in body.nodes:
+            self._gen_node(part, Match.ONCE)
 
     def _gen_zero_or_more(self, zom: ZeroOrMore):
         self._debug("ZeroOrMore\n")
@@ -256,13 +241,24 @@ class _FuncGen:
         else:
             raise AssertionError(f"Unknown match value: {match}")
 
-    def _gen_sub_rule_ref(self, name: str, match: Match):
-        self._debug(f"Sub-rule {name} ({match}\n")
-        self._emit_rule_match(name, match)
+    def _gen_sub_rule_ref(self, node: Node, match: Match):
+        # Before handling current level, generate the nested function
+        sub_func = _FuncGen(
+            self._name,
+            self._emitter,
+            self._debugs,
+            self._next_sub,
+            self._depth + 1,
+        )
+        sub_name, self._next_sub = sub_func.generate(node)
+
+        self._debug(f"Sub-rule {sub_name} ({match}\n")
+        self._emit_rule_match(sub_name, match)
 
     def _gen_rule_ref(self, rr: RuleRef, match: Match):
-        self._debug(f"RuleRef {rr.name} ({match}\n")
-        self._emit_rule_match(self._emitter.make_func_name(rr.name), match)
+        name = rr.name.value
+        self._debug(f"RuleRef {name} ({match}\n")
+        self._emit_rule_match(self._emitter.make_func_name(name), match)
 
     def _emit_token_match(self, name: str, match: Match):
         if match == Match.ONCE:
@@ -277,8 +273,9 @@ class _FuncGen:
             raise AssertionError(f"Unknown match value: {match}")
 
     def _gen_token_ref(self, tr: TokenRef, match: Match):
-        self._debug(f"TokenRef {tr.name} ({match})\n")
-        self._emit_token_match(tr.name, match)
+        name = tr.name.value
+        self._debug(f"TokenRef {name} ({match})\n")
+        self._emit_token_match(name, match)
 
     def _gen_token_lit(self, tl: TokenLit, match: Match):
         raise AssertionError(
@@ -307,9 +304,10 @@ class ParserGen:
             self._gen_rule(rule)
 
     def _gen_rule(self, rule: Rule):
-        self._debugs.append(f"\nRule start: {rule.name}\n")
+        name = rule.name.value
+        self._debugs.append(f"\nRule start: {name}\n")
 
-        func = _FuncGen(rule.name, self._emitter, self._debugs)
-        func.generate(rule.rules.rules)
+        func = _FuncGen(name, self._emitter, self._debugs)
+        func.generate(rule.node)
 
-        self._debugs.append(f"Rule end: {rule.name}\n\n")
+        self._debugs.append(f"Rule end: {name}\n\n")

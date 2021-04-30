@@ -1,12 +1,15 @@
 from typing import Dict, List, Optional, Tuple
 
+from lark.lexer import Token
+
 from mlpg.ast import (
+    Alternatives,
     Grammar,
+    MultipartBody,
     Node,
     NodeContainer,
     OneOrMore,
     Rule,
-    RuleBody,
     RuleRef,
     TokenLit,
     TokenRef,
@@ -20,7 +23,7 @@ class Process:
     def __init__(self, grammar: Grammar):
         self._grammar = grammar
 
-        self._literals: Dict[str, Tuple[str, Optional[TokenRef]]] = {}
+        self._literals: Dict[str, Tuple[Token, Optional[TokenRef]]] = {}
         self._errors: List[str] = []
 
     def _log_error(self, msg: str):
@@ -38,21 +41,23 @@ class Process:
     def _process_token_rule(self, rule: TokenRule) -> TokenRule:
         # TODO: Adapt this as TokenRule evolves
         # Add to dict so we can validate against literals in our grammar
-        self._literals[rule.literal] = rule.name, None
+        self._literals[rule.literal.value] = rule.name, None
         return rule
 
     def _process_rule(self, rule: Rule) -> Rule:
-        body = self._process_rule_body(rule.rules)
-        if body is rule.rules:
+        body = self._process_node(rule.node)
+        if body is rule.node:
             return rule
 
         return Rule(rule.name, body)
 
-    def _process_node(self, node: Node, parent: NodeContainer) -> Node:
+    def _process_node(self, node: Node, parent: Optional[NodeContainer] = None) -> Node:
         type_ = type(node)
 
-        if type_ is RuleBody:
-            return self._process_rule_body(node, parent)  # type: ignore
+        if type_ is Alternatives:
+            return self._process_alternatives(node, parent)  # type: ignore
+        elif type_ is MultipartBody:
+            return self._process_multipart_body(node, parent)  # type: ignore
         elif type_ is ZeroOrMore:
             return self._process_zero_or_more(node, parent)  # type: ignore
         elif type_ is OneOrMore:
@@ -68,29 +73,42 @@ class Process:
         else:
             raise AssertionError(f"Unknown node type: {type_}")
 
-        return node
+    def _process_alternatives(
+        self, alts: Alternatives, parent: Optional[NodeContainer]
+    ) -> Alternatives:
+        changed = False
+        new_alts: List[Node] = []
 
-    def _process_rule_body(
-        self, body: RuleBody, parent: Optional[NodeContainer] = None
-    ) -> RuleBody:
-        alts = body.rules  # type: ignore
+        for alt in alts.nodes:
+            new_alt = self._process_node(alt, parent=alts)
+            if new_alt is not alt:
+                changed = True
+            new_alts.append(new_alt)
 
-        # If only 1 alternative and 1 part we don't need the RuleBody
-        # so optimize it away
-        # TODO: Make sure this is safe without parent before enabling
-        if len(alts) == 1 and len(alts[0]) == 1 and parent is not None:
-            return self._process_node(alts[0][0], parent=body)  # type: ignore
+        if not changed:
+            return alts
 
-        new_alts: List[List[Node]] = []
+        return Alternatives(new_alts)
 
-        for alt in alts:
-            nodes = [self._process_node(node, parent=body) for node in alt]
-            new_alts.append(nodes)
+    def _process_multipart_body(
+        self, body: MultipartBody, parent: Optional[NodeContainer]
+    ) -> MultipartBody:
+        changed = False
+        new_parts: List[Node] = []
 
-        return RuleBody(new_alts)
+        for part in body.nodes:
+            new_part = self._process_node(part, parent=body)
+            if new_part is not part:
+                changed = True
+            new_parts.append(new_part)
+
+        if not changed:
+            return body
+
+        return MultipartBody(new_parts)
 
     def _process_zero_or_more(
-        self, zom: ZeroOrMore, parent: NodeContainer
+        self, zom: ZeroOrMore, parent: Optional[NodeContainer]
     ) -> ZeroOrMore:
         node = self._process_node(zom.node, parent=zom)
         if node is zom.node:
@@ -98,27 +116,37 @@ class Process:
 
         return ZeroOrMore(node)
 
-    def _process_one_or_more(self, oom: OneOrMore, parent: NodeContainer) -> OneOrMore:
+    def _process_one_or_more(
+        self, oom: OneOrMore, parent: Optional[NodeContainer]
+    ) -> OneOrMore:
         node = self._process_node(oom.node, parent=oom)
         if node is oom.node:
             return oom
 
         return OneOrMore(node)
 
-    def _process_zero_or_one(self, zoo: ZeroOrOne, parent: NodeContainer) -> ZeroOrOne:
+    def _process_zero_or_one(
+        self, zoo: ZeroOrOne, parent: Optional[NodeContainer]
+    ) -> ZeroOrOne:
         node = self._process_node(zoo.node, parent=zoo)
         if node is zoo.node:
             return zoo
 
-        return ZeroOrOne(node)
+        return ZeroOrOne(node, zoo.brackets)
 
-    def _process_rule_ref(self, ref: RuleRef, parent: NodeContainer) -> RuleRef:
+    def _process_rule_ref(
+        self, ref: RuleRef, parent: Optional[NodeContainer]
+    ) -> RuleRef:
         return ref
 
-    def _process_token_ref(self, ref: TokenRef, parent: NodeContainer) -> TokenRef:
+    def _process_token_ref(
+        self, ref: TokenRef, parent: Optional[NodeContainer]
+    ) -> TokenRef:
         return ref
 
-    def _process_token_lit(self, lit: TokenLit, parent: NodeContainer) -> Node:
+    def _process_token_lit(
+        self, lit: TokenLit, parent: Optional[NodeContainer]
+    ) -> Node:
         tup = self._literals.get(lit.literal)
         if not tup:
             self._log_error(

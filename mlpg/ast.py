@@ -16,8 +16,14 @@ class NodeContainer(Node):
 
 # rule_body
 @dataclass
-class RuleBody(NodeContainer):
-    rules: List[List[Node]]
+class Alternatives(NodeContainer):
+    nodes: List[Node]
+
+
+# rule_body
+@dataclass
+class MultipartBody(NodeContainer):
+    nodes: List[Node]
 
 
 # rule_part
@@ -36,38 +42,39 @@ class OneOrMore(NodeContainer):
 @dataclass
 class ZeroOrOne(NodeContainer):
     node: Node
+    brackets: bool
 
 
 # RULE_NAME
 @dataclass
 class RuleRef(Node):
-    name: str
+    name: Token
 
 
 # TOKEN_NAME
 @dataclass
 class TokenRef(Node):
-    name: str
+    name: Token
 
 
 # TOKEN_LIT
 @dataclass
 class TokenLit(Node):
-    literal: str
+    literal: Token
 
 
 # rule
 @dataclass
 class Rule:
-    name: str
-    rules: RuleBody
+    name: Token
+    node: Node
 
 
 # token_rule
 @dataclass
 class TokenRule:
-    name: str
-    literal: str  # For now, will evolve into more
+    name: Token
+    literal: Token  # For now, will evolve into more
 
 
 # grammar
@@ -79,13 +86,13 @@ class Grammar:
 
 class ToAST(Transformer):
     def RULE_NAME(self, token: Token) -> RuleRef:
-        return RuleRef(token.value)
+        return RuleRef(token)
 
     def TOKEN_NAME(self, token: Token) -> TokenRef:
-        return TokenRef(token.value)
+        return TokenRef(token)
 
     def TOKEN_LIT(self, token: Token) -> TokenLit:
-        return TokenLit(token.value)
+        return TokenLit(token)
 
     def grammar(self, rules: List[Union[Rule, TokenRule]]) -> Grammar:
         parse_rules, token_rules = [], []
@@ -106,21 +113,22 @@ class ToAST(Transformer):
     def rule(self, args: List[Any]) -> Rule:
         return Rule(args[0].name, args[1])
 
-    def rule_body(self, args: List[Node]) -> RuleBody:
+    def rule_body(self, parts: List[Node]) -> Node:
         rules: List[Node] = []
-        alternatives: List[List[Node]] = []
+        alts: List[Node] = []
 
-        for arg in args:
+        for part in parts:
             # When we hit a pipe in the stream, end current alternative
-            if isinstance(arg, Token) and arg.value == "|":
-                alternatives.append(rules)
+            if isinstance(part, Token) and part.value == "|":
+                # If multiple rules, nest inside multipartbody otherwise just node itself
+                alts.append(MultipartBody(rules) if len(rules) > 1 else rules[0])
                 rules = []
                 continue
 
-            rules.append(arg)
+            rules.append(part)
 
-        alternatives.append(rules)
-        return RuleBody(alternatives)
+        alts.append(MultipartBody(rules) if len(rules) > 1 else rules[0])
+        return Alternatives(alts) if len(alts) > 1 else alts[0]
 
     def rule_part(self, args: List[Any]) -> Node:
         rule_len = len(args)
@@ -136,11 +144,11 @@ class ToAST(Transformer):
             if suffix == "*":
                 return ZeroOrMore(rule_elem)
             if suffix == "?":
-                return ZeroOrOne(rule_elem)
+                return ZeroOrOne(rule_elem, brackets=False)
 
             raise AssertionError(f"Unknown suffix: {suffix}")
         # rule body in between square brackets
         elif rule_len == 3:
-            return ZeroOrOne(args[1])
+            return ZeroOrOne(args[1], brackets=True)
 
         raise AssertionError(f"Rule length isn't 1-3: {rule_len}")
