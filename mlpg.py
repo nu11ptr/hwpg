@@ -1,6 +1,7 @@
 from enum import Enum
 import os
 import sys
+from typing import Tuple
 
 import click
 from lark import Lark, Tree
@@ -30,13 +31,19 @@ def _parse_grammar(filename: str) -> Tree:
     return parser.parse(src)
 
 
-def _gen_code_and_save(grammar: Grammar, name: str, output: str, memoize: bool):
-    # Generate the code
-    emitter = PyCodeEmitter(name, PyParseTreeMaker(), memoize)
-    parser_str, _ = ParserGen(emitter).generate(grammar)
+def _gen_parser(
+    grammar: Grammar, lang: Lang, name: str, memoize: bool
+) -> Tuple[str, str]:
+    if lang == Lang.PYTHON:
+        emitter = PyCodeEmitter(name, PyParseTreeMaker(), memoize)
+    else:
+        raise AssertionError(f"Unknown or unsupported language: {lang}")
 
-    if not output:
-        output = name
+    parser_str, _ = ParserGen(emitter).generate(grammar)
+    return parser_str, emitter.parser_filename()
+
+
+def _save_parser(parser: str, output: str, filename: str):
 
     try:
         os.mkdir(output)
@@ -44,9 +51,9 @@ def _gen_code_and_save(grammar: Grammar, name: str, output: str, memoize: bool):
         pass
 
     # Save parser
-    output_file = os.path.join(output, emitter.parser_filename())
+    output_file = os.path.join(output, filename)
     with open(output_file, "w") as f:
-        f.write(parser_str)
+        f.write(parser)
 
 
 @click.command()
@@ -76,7 +83,7 @@ def _gen_code_and_save(grammar: Grammar, name: str, output: str, memoize: bool):
     show_default=True,
     help="Speed up the generated parser by memoizing parsing function calls.",
 )
-def hwpg(filename: str, lang: str, output: str, memoize: bool):
+def hwpg(filename: str, lang: Lang, output: str, memoize: bool):
     """
     "hand written" parser generator - generate parsers that look like they were
     written by hand
@@ -86,15 +93,12 @@ def hwpg(filename: str, lang: str, output: str, memoize: bool):
         print("'go' is not yet supported.")
         sys.exit(1)
 
-    # Find the base name from the given filename
-    name, _ = os.path.splitext(os.path.basename(filename))
-
     # NOTE: We don't need the parse tree, but passing current transformer
     # directly into parser yields an exception - no big deal, keep as is for now
     # Parse the user's grammar
     tree = _parse_grammar(filename)
 
-    # Then convert our parse tree into an AST
+    # Then convert the user's parse tree into an AST
     grammar = ToAST().transform(tree)
 
     # Do post processing optimizing the AST and looking for errors
@@ -104,8 +108,17 @@ def hwpg(filename: str, lang: str, output: str, memoize: bool):
         print(f"Errors:\n{err}")
         sys.exit(1)
 
-    # Finally, generate code from our AST and save to filesystem
-    _gen_code_and_save(new_grammar, name, output, memoize)
+    # Find the base name from the given grammar filename
+    name, _ = os.path.splitext(os.path.basename(filename))
+
+    # Generate code for the parser
+    parser, parser_file = _gen_parser(new_grammar, lang, name, memoize)
+
+    if not output:
+        output = name
+
+    # Finally, save the parser to the filesystem
+    _save_parser(parser, output, parser_file)
 
 
 if __name__ == "__main__":
