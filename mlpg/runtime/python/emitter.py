@@ -198,10 +198,15 @@ class PyFuncEmitter(BaseFuncEmitter):
 
 
 class PyCodeEmitter(Jinja2CodeEmitter):
-    def __init__(self, tree_maker: TreeMaker, memoize: bool = True):
+    def __init__(self, name: str, tree_maker: TreeMaker, memoize: bool = True):
         super().__init__("templates/python", "parser.py.j2")
         self._tree_maker = tree_maker
+        self.name = name
+        self._vars["name"] = name.title()  # TODO: Make camel case
         self._vars["memoize"] = memoize
+
+    def parser_filename(self) -> str:
+        return f"{self.name}_parser.py"
 
     @staticmethod
     def make_func_name(name: str, sub: int = 0, depth: int = 0) -> str:

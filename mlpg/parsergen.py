@@ -63,6 +63,9 @@ class CodeEmitter(Protocol):
     def make_func_name(name: str, sub: int = 0, depth: int = 0) -> str:
         ...
 
+    def parser_filename(self) -> str:
+        ...
+
     def start_func(self, name: str, early_ret: bool) -> FuncEmitter:
         ...
 
@@ -288,17 +291,17 @@ class ParserGen:
         self._emitter = emitter
         self._debugs: List[str] = []
 
-    def generate(self, name: str, grammar: Grammar) -> Tuple[str, str]:
+    def generate(self, grammar: Grammar) -> Tuple[str, str]:
         """
         Generates a parser class/struct and associated parser functions. It
         returns a tuple of the parser and debug string
         """
         self._debugs = []
-        self._gen_grammar(name, grammar)
+        self._gen_grammar(grammar)
         return self._emitter.emit(), "".join(self._debugs)
 
-    def _gen_grammar(self, name: str, grammar: Grammar):
-        self._debugs.append(f"Grammar {name}\n")
+    def _gen_grammar(self, grammar: Grammar):
+        self._debugs.append("Grammar\n")
 
         for rule in grammar.rules:
             self._gen_rule(rule)
