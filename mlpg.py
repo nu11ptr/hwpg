@@ -5,7 +5,7 @@ from lark import Lark
 from mlpg.ast import ToAST
 from mlpg.parsergen import ParserGen
 from mlpg.process import Process
-from runtime.python.emitter import PyCodeEmitter, PyParseTreeMaker
+from mlpg.runtime.python.emitter import PyCodeEmitter, PyParseTreeMaker
 
 _PARSER = "mlpg.lark"
 
