@@ -1,8 +1,8 @@
-call_arg : [IDENT "="] simple_expr;
+call_arg: [IDENT "="] simple_expr
 
-call : IDENT "(" [call_arg ("," call_arg)* ","?] ")";
+call: IDENT "(" [call_arg ("," call_arg)* ","?] ")"
 
-EQUALS: "=";
-LPAREN: "(";
-RPAREN: ")";
-COMMA: ",";
+EQUALS: "="
+LPAREN: "("
+RPAREN: ")"
+COMMA: ","

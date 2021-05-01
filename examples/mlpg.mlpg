@@ -1,26 +1,33 @@
 # *** Parser rules ***
 
+grammar: (entry NL)* entry?
+
+entry: rule | token_rule
+
 ### Parser ###
 
-grammar: (rule | token_rule)*;
+rule: RULE_NAME NL? ":" rule_body
 
-rule: RULE_NAME ":" rule_body ";";
+rule_body: rule_part+ (NL? "|" rule_part+)*
 
-rule_body: rule_part+ (PIPE rule_part+)*;
+rule_part: rule_elem suffix? | "[" rule_body "]"
 
-rule_part: rule_elem [suffix] | LBRACKET rule_body RBRACKET;
+rule_elem: "(" rule_body ")" | RULE_NAME | TOKEN_NAME | TOKEN_LIT
 
-rule_elem: "(" rule_body ")" | RULE_NAME | TOKEN_NAME | TOKEN_LIT;
-
-suffix: PLUS | STAR | QUEST_MARK;
+suffix: "+" | "*" | "?"
 
 ### Lexer ###
 
-token_rule: TOKEN_NAME ":" TOKEN_LIT ";";
+token_rule: TOKEN_NAME ":" TOKEN_LIT
 
 # *** Lexer rules ***
 
-COLON: ":";
-SEMI: ";";
-LPAREN: "(";
-RPAREN: ")";
+COLON: ":"
+PIPE: "|"
+LBRACKET: "["
+RBRACKET: "]"
+LPAREN: "("
+RPAREN: ")"
+PLUS: "+"
+STAR: "*"
+QUEST_MARK: "?"

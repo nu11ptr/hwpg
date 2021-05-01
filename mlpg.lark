@@ -1,14 +1,16 @@
 // *** Parser rules ***
 
-grammar: (rule | token_rule)*
+grammar: (entry _NL)* entry?
+
+entry: rule | token_rule
 
 // ### Parser ###
 
-rule: RULE_NAME ":" rule_body ";"
+rule: RULE_NAME _NL_COLON rule_body
 
-rule_body: rule_part+ (PIPE rule_part+)*
+rule_body: rule_part+ (NL_PIPE rule_part+)*
 
-rule_part: rule_elem [suffix] | LBRACKET rule_body RBRACKET
+rule_part: rule_elem suffix? | LBRACKET rule_body RBRACKET
 
 ?rule_elem: "(" rule_body ")" | RULE_NAME | TOKEN_NAME | TOKEN_LIT
 
@@ -16,7 +18,7 @@ rule_part: rule_elem [suffix] | LBRACKET rule_body RBRACKET
 
 // ### Lexer ###
 
-token_rule: TOKEN_NAME ":" TOKEN_LIT ";"
+token_rule: TOKEN_NAME _NL_COLON TOKEN_LIT
 
 // *** Lexer rules ***
 
@@ -25,13 +27,15 @@ STAR: "*"
 QUEST_MARK: "?"
 LBRACKET: "["
 RBRACKET: "]"
-PIPE: "|"
 
+_NL_COLON: _NL? ":"
+NL_PIPE: _NL? "|"
+_NL: /(\r?\n)+\s*/
 TOKEN_NAME: /[A-Z][A-Z0-9_]*/
 RULE_NAME: /[a-z][a-z0-9_]*/
 TOKEN_LIT: "\"" /.*?/ "\""
 
-WS: /[ \t\f\r\n]/+
-COMMENT: /#[^\r\n]*/
+WS: /[ \t\f]/+
+COMMENT: /#[^\r\n]*\s*/
 %ignore COMMENT
 %ignore WS

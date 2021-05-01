@@ -123,7 +123,7 @@ class Rule:
 
     @property
     def comment(self) -> str:
-        return f"{self.name.value}: {self.node.comment};"
+        return f"{self.name.value}: {self.node.comment}"
 
 
 # token_rule
@@ -134,7 +134,7 @@ class TokenRule:
 
     @property
     def comment(self) -> str:
-        return f"{self.name.value}: {self.literal.comment};"
+        return f"{self.name.value}: {self.literal.comment}"
 
 
 # grammar
@@ -167,6 +167,9 @@ class ToAST(Transformer):
 
         return Grammar(parse_rules, token_rules)
 
+    def entry(self, args: List[Union[Rule, TokenRule]]) -> Union[Rule, TokenRule]:
+        return args[0]
+
     def token_rule(self, args: List[Any]) -> TokenRule:
         return TokenRule(args[0].name, args[1])
 
@@ -179,7 +182,7 @@ class ToAST(Transformer):
 
         for part in parts:
             # When we hit a pipe in the stream, end current alternative
-            if isinstance(part, Token) and part.value == "|":
+            if isinstance(part, Token) and "|" in part.value:
                 # If multiple rules, nest inside multipartbody otherwise just node itself
                 alts.append(MultipartBody(rules) if len(rules) > 1 else rules[0])
                 rules = []
