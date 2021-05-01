@@ -1,4 +1,3 @@
-from enum import Enum
 import os
 import sys
 from typing import Tuple
@@ -7,16 +6,12 @@ import click
 from lark import Lark, Tree
 
 from mlpg.ast import Grammar, ToAST
+from mlpg.config import Config, Lang, load, OutputType
 from mlpg.parsergen import ParserGen
 from mlpg.process import Process
 from mlpg.runtime.python.emitter import PyCodeEmitter, PyParseTreeMaker
 
 _PARSER = "mlpg.lark"
-
-
-class Lang(str, Enum):
-    PYTHON = "python"
-    GO = "go"
 
 
 def _parse_grammar(filename: str) -> Tree:
@@ -31,13 +26,11 @@ def _parse_grammar(filename: str) -> Tree:
     return parser.parse(src)
 
 
-def _gen_parser(
-    grammar: Grammar, lang: Lang, name: str, memoize: bool
-) -> Tuple[str, str]:
-    if lang == Lang.PYTHON:
-        emitter = PyCodeEmitter(name, PyParseTreeMaker(), memoize)
+def _gen_parser(grammar: Grammar, name: str, cfg: Config) -> Tuple[str, str]:
+    if cfg.lang == Lang.PYTHON:
+        emitter = PyCodeEmitter(name, PyParseTreeMaker(), cfg.memoize)
     else:
-        raise AssertionError(f"Unknown or unsupported language: {lang}")
+        raise AssertionError(f"Unknown or unsupported language: {cfg.lang}")
 
     parser_str, _ = ParserGen(emitter).generate(grammar)
     return parser_str, emitter.parser_filename()
@@ -61,36 +54,35 @@ def _save_parser(parser: str, output: str, filename: str):
     "filename", metavar="<grammar.hwpg>", type=click.Path(exists=True, readable=True)
 )
 @click.option(
-    "--lang",
-    "-l",
-    type=click.Choice([Lang.PYTHON, Lang.GO]),
-    default=Lang.PYTHON,
+    "--config",
+    "-c",
+    type=click.Path(exists=True, readable=True),
+    default=None,
     show_default=True,
-    help="Language in which to generate the parser",
+    help="Optional python configuration file specifying overrides to the default configuration",
 )
 @click.option(
     "--output",
     "-o",
     type=click.Path(dir_okay=True),
     help="The output directory in which to write the generated files. It defaults to "
-    "using a folder in the current working directory with the base name of the grammar.",
+    "the same folder in which the grammar is located",
 )
-@click.option(
-    "--memoize",
-    "-m",
-    type=bool,
-    default=True,
-    show_default=True,
-    help="Speed up the generated parser by memoizing parsing function calls.",
-)
-def hwpg(filename: str, lang: Lang, output: str, memoize: bool):
+def hwpg(filename: str, config: str, output: str):
     """
     "hand written" parser generator - generate parsers that look like they were
     written by hand
     """
 
-    if lang == Lang.GO:
+    # First, load our configuration (either defaults or user supplied)
+    cfg = load(config)
+
+    if cfg.lang == Lang.GO:
         print("'go' is not yet supported.")
+        sys.exit(1)
+
+    if cfg.output_type != OutputType.PARSER:
+        print("Only 'parser' generation is currently supported.")
         sys.exit(1)
 
     # NOTE: We don't need the parse tree, but passing current transformer
@@ -112,10 +104,10 @@ def hwpg(filename: str, lang: Lang, output: str, memoize: bool):
     name, _ = os.path.splitext(os.path.basename(filename))
 
     # Generate code for the parser
-    parser, parser_file = _gen_parser(new_grammar, lang, name, memoize)
+    parser, parser_file = _gen_parser(new_grammar, name, cfg)
 
     if not output:
-        output = name
+        output = os.path.dirname(filename)
 
     # Finally, save the parser to the filesystem
     _save_parser(parser, output, parser_file)
