@@ -41,7 +41,7 @@ class Process:
     def _process_token_rule(self, rule: TokenRule) -> TokenRule:
         # TODO: Adapt this as TokenRule evolves
         # Add to dict so we can validate against literals in our grammar
-        self._literals[rule.literal.value] = rule.name, None
+        self._literals[rule.literal.literal.value] = rule.name, None
         return rule
 
     def _process_rule(self, rule: Rule) -> Rule:
@@ -157,7 +157,7 @@ class Process:
         name, ref = tup
         # If TokenRef not already created, do so and store for future
         if not ref:
-            ref = TokenRef(name)
+            ref = TokenRef(name, lit.literal)
             self._literals[lit.literal] = name, ref
 
         return ref

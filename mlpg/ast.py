@@ -1,15 +1,16 @@
+from abc import abstractproperty, ABC
 from dataclasses import dataclass
-from typing import Any, List, Union
+from typing import Any, List, Optional, Union
 
 from lark import Token, Transformer
 
 
-@dataclass
-class Node:
-    pass
+class Node(ABC):
+    @abstractproperty
+    def comment(self) -> str:
+        pass
 
 
-@dataclass
 class NodeContainer(Node):
     pass
 
@@ -19,11 +20,19 @@ class NodeContainer(Node):
 class Alternatives(NodeContainer):
     nodes: List[Node]
 
+    @property
+    def comment(self) -> str:
+        return " | ".join([node.comment for node in self.nodes])
+
 
 # rule_body
 @dataclass
 class MultipartBody(NodeContainer):
     nodes: List[Node]
+
+    @property
+    def comment(self) -> str:
+        return " ".join([node.comment for node in self.nodes])
 
 
 # rule_part
@@ -31,11 +40,29 @@ class MultipartBody(NodeContainer):
 class ZeroOrMore(NodeContainer):
     node: Node
 
+    @property
+    def comment(self) -> str:
+        # TODO: Generate parens for all containers, but to be really accurate, we'd
+        # need to parse the parens and track whether we saw them or not
+        if isinstance(self.node, NodeContainer):
+            return f"({self.node.comment})*"
+        else:
+            return self.node.comment + "*"
+
 
 # rule_part
 @dataclass
 class OneOrMore(NodeContainer):
     node: Node
+
+    @property
+    def comment(self) -> str:
+        # TODO: Generate parens for all containers, but to be really accurate, we'd
+        # need to parse the parens and track whether we saw them or not
+        if isinstance(self.node, NodeContainer):
+            return f"({self.node.comment})+"
+        else:
+            return self.node.comment + "+"
 
 
 # rule_part
@@ -44,23 +71,48 @@ class ZeroOrOne(NodeContainer):
     node: Node
     brackets: bool
 
+    @property
+    def comment(self) -> str:
+        if self.brackets:
+            return "[" + self.node.comment + "]"
+        else:
+            # TODO: Generate parens for all containers, but to be really accurate, we'd
+            # need to parse the parens and track whether we saw them or not
+            if isinstance(self.node, NodeContainer):
+                return f"({self.node.comment})?"
+            else:
+                return self.node.comment + "?"
+
 
 # RULE_NAME
 @dataclass
 class RuleRef(Node):
     name: Token
 
+    @property
+    def comment(self) -> str:
+        return self.name.value
+
 
 # TOKEN_NAME
 @dataclass
 class TokenRef(Node):
     name: Token
+    replaced_lit: Optional[Token] = None
+
+    @property
+    def comment(self) -> str:
+        return self.name.value if not self.replaced_lit else self.replaced_lit.value
 
 
 # TOKEN_LIT
 @dataclass
 class TokenLit(Node):
     literal: Token
+
+    @property
+    def comment(self) -> str:
+        return '"' + self.literal.value + '"'
 
 
 # rule
@@ -69,12 +121,20 @@ class Rule:
     name: Token
     node: Node
 
+    @property
+    def comment(self) -> str:
+        return f"{self.name.value}: {self.node.comment};"
+
 
 # token_rule
 @dataclass
 class TokenRule:
     name: Token
-    literal: Token  # For now, will evolve into more
+    literal: TokenLit  # For now, will evolve into more
+
+    @property
+    def comment(self) -> str:
+        return f"{self.name.value}: {self.literal.comment};"
 
 
 # grammar
@@ -108,7 +168,7 @@ class ToAST(Transformer):
         return Grammar(parse_rules, token_rules)
 
     def token_rule(self, args: List[Any]) -> TokenRule:
-        return TokenRule(args[0].name, args[1].literal)
+        return TokenRule(args[0].name, args[1])
 
     def rule(self, args: List[Any]) -> Rule:
         return Rule(args[0].name, args[1])
