@@ -1,5 +1,5 @@
 from enum import auto, Enum
-from typing import Any, Dict, List, Protocol, Tuple
+from typing import Any, Dict, List, Optional, Protocol, Tuple
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -18,12 +18,19 @@ from hwpg.ast import (
 )
 
 
-class TreeMaker(Protocol):
-    def return_type(self, name: str) -> str:
+class ParserActions(Protocol):
+    """Interface for user defined ParserActions classes"""
+
+    def import_code(self) -> str:
+        ...
+
+    def init_code(self) -> str:
         ...
 
 
 class ParserFuncCodeGen(Protocol):
+    """Parser function code generator interface"""
+
     name: str
     ret_type: str
     early_ret: bool
@@ -57,6 +64,8 @@ class ParserFuncCodeGen(Protocol):
 
 
 class ParserCodeGen(Protocol):
+    """Top level parser code generator interface"""
+
     def generate(self) -> str:
         ...
 
@@ -64,6 +73,7 @@ class ParserCodeGen(Protocol):
     def make_func_name(name: str, sub: int = 0, depth: int = 0) -> str:
         ...
 
+    @property
     def parser_filename(self) -> str:
         ...
 
@@ -75,19 +85,19 @@ class ParserCodeGen(Protocol):
 
 
 class BaseParserFuncCodeGen:
+    """Base class for parser function code generator subclasses"""
+
     def __init__(
         self,
         name: str,
-        ret_type: str,
         early_ret: bool,
         comment: str,
-        tree_maker: TreeMaker,
+        actions: Optional[ParserActions],
     ):
         self.name = name
-        self.ret_type = ret_type
         self.early_ret = early_ret
         self.comment = comment
-        self._tree_maker = tree_maker
+        self._actions = actions
 
         self._vars: List[str] = []
         self._func_parts: List[str] = []
@@ -112,6 +122,8 @@ class BaseParserFuncCodeGen:
 
 
 class Jinja2ParserCodeGen:
+    """Base class for parser code generator subclasses"""
+
     def __init__(self, templates: str, filename: str):
         loader = FileSystemLoader(templates)
         self._env = Environment(loader=loader)
@@ -137,6 +149,8 @@ class Match(Enum):
 
 
 class _ParserFuncGen:
+    """Language agnostic parser function generator"""
+
     def __init__(
         self,
         name: str,
@@ -296,6 +310,8 @@ class _ParserFuncGen:
 
 
 class ParserGen:
+    """Language agnostic parser generator"""
+
     def __init__(self, codegen: ParserCodeGen):
         self._codegen = codegen
         self._debugs: List[str] = []

@@ -1,13 +1,34 @@
+{% if not ast -%}
+from dataclasses import dataclass
+{%- endif %}
 {%- if memoize %}
+{%- if not ast %}
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+{%- else %}
 from typing import Any, Callable, Dict, List, Optional, Tuple
+{% endif -%}
+{%- else %}
+{%- if not ast %}
+from typing import List, Optional, Union
 {%- else %}
 from typing import List, Optional
 {%- endif %}
+{%- endif %}
 
+{% if not ast -%}
+from .tokens import Token, TokenType, Tokenizer, {{ ret_type }}
+
+
+@dataclass
+class ParserNode:
+    nodes: List[Union[Optional[{{ ret_type }}], List[{{ ret_type }}]]]
+{% else -%}
 from .tokens import Token, TokenType, Tokenizer
-
+{% endif %}
 
 class _Parser:
+    """Parser base class containing helper functions"""
+
     def __init__(self, tokenizer: Tokenizer):
         self._tok = tokenizer
         self.pos = -1
@@ -85,6 +106,8 @@ def _memoize(func):
 {% endif %}
 
 class {{ name }}Parser(_Parser):
+    """Primary parser class"""
+
     def __init__(self, tokenizer: Tokenizer):
         super().__init__(tokenizer)
 {%- if memoize %}

@@ -10,7 +10,7 @@ from hwpg.config import Config, Lang, load, OutputType
 from hwpg.lexergen import TokensGen
 from hwpg.parsergen import ParserGen
 from hwpg.process import Process
-from hwpg.runtime.python.parser_codegen import PyParserCodeGen, PyParseTreeMaker
+from hwpg.runtime.python.parser_codegen import PyParserCodeGen
 from hwpg.runtime.python.lexer_codegen import PyTokensCodeGen
 
 _PARSER = "hwpg.lark"
@@ -30,12 +30,12 @@ def _parse_grammar(filename: str) -> Tree:
 
 def _gen_parser(grammar: Grammar, name: str, cfg: Config) -> Tuple[str, str]:
     if cfg.lang == Lang.PYTHON:
-        emitter = PyParserCodeGen(name, PyParseTreeMaker(), cfg.memoize)
+        codgen = PyParserCodeGen(name, cfg.parser_actions, cfg.memoize)
     else:
         raise AssertionError(f"Unknown or unsupported language: {cfg.lang}")
 
-    parser_str, _ = ParserGen(emitter).generate(grammar)
-    return parser_str, emitter.parser_filename()
+    parser_str, _ = ParserGen(codgen).generate(grammar)
+    return parser_str, codgen.parser_filename
 
 
 def _gen_tokens(token_names: List[str], cfg: Config) -> Tuple[str, str]:

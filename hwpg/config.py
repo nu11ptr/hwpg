@@ -3,6 +3,9 @@ from enum import Enum
 from importlib.util import module_from_spec, spec_from_file_location
 from typing import Any, Optional
 
+from hwpg.lexergen import LexerActions
+from hwpg.parsergen import ParserActions
+
 
 class Lang(str, Enum):
     PYTHON = "python"
@@ -26,8 +29,8 @@ class Config:
     memoize: bool = True
     left_recursion: bool = True
 
-    lexer_transformer: Optional[Any] = None
-    parser_transformer: Optional[Any] = None
+    lexer_actions: Optional[LexerActions] = None
+    parser_actions: Optional[ParserActions] = None
 
 
 def load(filename: Optional[str]) -> Config:

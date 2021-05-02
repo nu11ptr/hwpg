@@ -34,3 +34,13 @@ class TokensGen:
         returns the tokens code and filename
         """
         return self._codegen.generate(token_names), self._codegen.tokens_filename
+
+
+class LexerActions(Protocol):
+    """Interface for user defined LexerActions classes"""
+
+    def import_code(self) -> str:
+        ...
+
+    def init_code(self) -> str:
+        ...
