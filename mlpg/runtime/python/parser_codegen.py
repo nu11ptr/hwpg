@@ -2,7 +2,12 @@ from typing import List
 
 from jinja2 import Template
 
-from mlpg.parsergen import BaseFuncEmitter, FuncEmitter, Jinja2CodeEmitter, TreeMaker
+from mlpg.parsergen import (
+    BaseParserFuncCodeGen,
+    ParserFuncCodeGen,
+    Jinja2ParserCodeGen,
+    TreeMaker,
+)
 
 _FUNC_START = '''    def {{ name }}(self) -> Optional[{{ ret_type }}]:
         """
@@ -112,7 +117,7 @@ _MATCH_RULE_ONE_OR_MORE = """        # {{ comment }}
 """
 
 
-class PyFuncEmitter(BaseFuncEmitter):
+class PyParserFuncCodeGen(BaseParserFuncCodeGen):
     def __init__(
         self,
         name: str,
@@ -217,7 +222,7 @@ class PyFuncEmitter(BaseFuncEmitter):
         )
 
 
-class PyCodeEmitter(Jinja2CodeEmitter):
+class PyParserCodeGen(Jinja2ParserCodeGen):
     def __init__(self, name: str, tree_maker: TreeMaker, memoize: bool = True):
         super().__init__("templates/python", "parser.py.j2")
         self._tree_maker = tree_maker
@@ -232,12 +237,12 @@ class PyCodeEmitter(Jinja2CodeEmitter):
     def make_func_name(name: str, sub: int = 0, depth: int = 0) -> str:
         return f"_parse_{name}_sub{sub}_depth{depth}" if sub > 0 else f"parse_{name}"
 
-    def start_func(self, name: str, early_ret: bool, comment: str) -> FuncEmitter:
+    def start_func(self, name: str, early_ret: bool, comment: str) -> ParserFuncCodeGen:
         ret_type = self._tree_maker.return_type(name)
-        return PyFuncEmitter(name, ret_type, early_ret, comment, self._tree_maker)
+        return PyParserFuncCodeGen(name, ret_type, early_ret, comment, self._tree_maker)
 
-    def end_func(self, emitter: FuncEmitter):
-        self._funcs.append(emitter.emit())
+    def end_func(self, codegen: ParserFuncCodeGen):
+        self._funcs.append(codegen.generate())
 
 
 class Tree:

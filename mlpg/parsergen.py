@@ -23,12 +23,12 @@ class TreeMaker(Protocol):
         ...
 
 
-class FuncEmitter(Protocol):
+class ParserFuncCodeGen(Protocol):
     name: str
     ret_type: str
     early_ret: bool
 
-    def emit(self) -> str:
+    def generate(self) -> str:
         ...
 
     def match_token(self, name: str, comment: str):
@@ -56,8 +56,8 @@ class FuncEmitter(Protocol):
         ...
 
 
-class CodeEmitter(Protocol):
-    def emit(self) -> str:
+class ParserCodeGen(Protocol):
+    def generate(self) -> str:
         ...
 
     @staticmethod
@@ -67,14 +67,14 @@ class CodeEmitter(Protocol):
     def parser_filename(self) -> str:
         ...
 
-    def start_func(self, name: str, early_ret: bool, comment: str) -> FuncEmitter:
+    def start_func(self, name: str, early_ret: bool, comment: str) -> ParserFuncCodeGen:
         ...
 
-    def end_func(self, emitter: FuncEmitter):
+    def end_func(self, codegen: ParserFuncCodeGen):
         ...
 
 
-class BaseFuncEmitter:
+class BaseParserFuncCodeGen:
     def __init__(
         self,
         name: str,
@@ -106,12 +106,12 @@ class BaseFuncEmitter:
     def _end_func(self):
         pass
 
-    def emit(self) -> str:
+    def generate(self) -> str:
         self._end_func()
         return "".join(self._func_parts)
 
 
-class Jinja2CodeEmitter:
+class Jinja2ParserCodeGen:
     def __init__(self, templates: str, filename: str):
         loader = FileSystemLoader(templates)
         self._env = Environment(loader=loader)
@@ -123,7 +123,7 @@ class Jinja2CodeEmitter:
     def _end_code(self):
         pass
 
-    def emit(self) -> str:
+    def generate(self) -> str:
         self._end_code()
         self._vars["functions"] = self._funcs
         return self._main_templ.render(**self._vars)
@@ -136,22 +136,22 @@ class Match(Enum):
     ONCE_OR_MORE = auto()
 
 
-class _FuncGen:
+class _ParserFuncGen:
     def __init__(
         self,
         name: str,
-        emitter: CodeEmitter,
+        codegen: ParserCodeGen,
         debugs: List[str],
         sub: int = 0,
         depth: int = 0,
     ):
         self._name = name
-        self._emitter = emitter
+        self._codegen = codegen
         self._debugs = debugs
         self._next_sub = sub
         self._depth = depth
 
-        self._func_emitter: FuncEmitter
+        self._func_codegen: ParserFuncCodeGen
         self._debug_pieces: List[str] = []
 
     def _debug(self, msg: str):
@@ -164,13 +164,13 @@ class _FuncGen:
         function string and the next sub #
         """
         # Start new code function
-        func_name = self._emitter.make_func_name(
+        func_name = self._codegen.make_func_name(
             self._name, self._next_sub, self._depth
         )
         # Only a multipart body disallows early return
         early_ret = not isinstance(node, MultipartBody)
-        self._func_emitter = self._emitter.start_func(func_name, early_ret, comment)
-        func_name = self._func_emitter.name
+        self._func_codegen = self._codegen.start_func(func_name, early_ret, comment)
+        func_name = self._func_codegen.name
         self._next_sub += 1
         self._debug_pieces = []
         self._debug(f"Start func: {func_name}\n")
@@ -179,7 +179,7 @@ class _FuncGen:
 
         # End new function
         self._debug(f"End func: {func_name}\n")
-        self._emitter.end_func(self._func_emitter)
+        self._codegen.end_func(self._func_codegen)
 
         # Store func str and debugs at the end so sub functions are added first
         self._debugs.append("".join(self._debug_pieces))
@@ -241,23 +241,23 @@ class _FuncGen:
         self._debug("ZeroOrOne\n")
         self._gen_node(zoo.node, zoo.comment, Match.ZERO_OR_ONCE)
 
-    def _emit_rule_match(self, name: str, match: Match, comment: str):
+    def _gen_rule_match(self, name: str, match: Match, comment: str):
         if match == Match.ONCE:
-            self._func_emitter.parse_rule(name, comment)
+            self._func_codegen.parse_rule(name, comment)
         elif match == Match.ZERO_OR_ONCE:
-            self._func_emitter.parse_rule_zero_or_one(name, comment)
+            self._func_codegen.parse_rule_zero_or_one(name, comment)
         elif match == Match.ZERO_OR_MORE:
-            self._func_emitter.parse_rule_zero_or_more(name, comment)
+            self._func_codegen.parse_rule_zero_or_more(name, comment)
         elif match == Match.ONCE_OR_MORE:
-            self._func_emitter.parse_rule_one_or_more(name, comment)
+            self._func_codegen.parse_rule_one_or_more(name, comment)
         else:
             raise AssertionError(f"Unknown match value: {match}")
 
     def _gen_sub_rule_ref(self, node: Node, match: Match, comment: str):
         # Before handling current level, generate the nested function
-        sub_func = _FuncGen(
+        sub_func = _ParserFuncGen(
             self._name,
-            self._emitter,
+            self._codegen,
             self._debugs,
             self._next_sub,
             self._depth + 1,
@@ -265,29 +265,29 @@ class _FuncGen:
         sub_name, self._next_sub = sub_func.generate(node, node.comment)
 
         self._debug(f"Sub-rule {sub_name} ({match}\n")
-        self._emit_rule_match(sub_name, match, comment)
+        self._gen_rule_match(sub_name, match, comment)
 
     def _gen_rule_ref(self, rr: RuleRef, match: Match, comment: str):
         name = rr.name.value
         self._debug(f"RuleRef {name} ({match}\n")
-        self._emit_rule_match(self._emitter.make_func_name(name), match, comment)
+        self._gen_rule_match(self._codegen.make_func_name(name), match, comment)
 
-    def _emit_token_match(self, name: str, match: Match, comment: str):
+    def _gen_token_match(self, name: str, match: Match, comment: str):
         if match == Match.ONCE:
-            self._func_emitter.match_token(name, comment)
+            self._func_codegen.match_token(name, comment)
         elif match == Match.ZERO_OR_ONCE:
-            self._func_emitter.match_token_zero_or_one(name, comment)
+            self._func_codegen.match_token_zero_or_one(name, comment)
         elif match == Match.ZERO_OR_MORE:
-            self._func_emitter.match_token_zero_or_more(name, comment)
+            self._func_codegen.match_token_zero_or_more(name, comment)
         elif match == Match.ONCE_OR_MORE:
-            self._func_emitter.match_token_one_or_more(name, comment)
+            self._func_codegen.match_token_one_or_more(name, comment)
         else:
             raise AssertionError(f"Unknown match value: {match}")
 
     def _gen_token_ref(self, tr: TokenRef, match: Match, comment: str):
         name = tr.name.value
         self._debug(f"TokenRef {name} ({match})\n")
-        self._emit_token_match(name, match, comment)
+        self._gen_token_match(name, match, comment)
 
     def _gen_token_lit(self, tl: TokenLit, match: Match, comment: str):
         raise AssertionError(
@@ -296,8 +296,8 @@ class _FuncGen:
 
 
 class ParserGen:
-    def __init__(self, emitter: CodeEmitter):
-        self._emitter = emitter
+    def __init__(self, codegen: ParserCodeGen):
+        self._codegen = codegen
         self._debugs: List[str] = []
 
     def generate(self, grammar: Grammar) -> Tuple[str, str]:
@@ -307,7 +307,7 @@ class ParserGen:
         """
         self._debugs = []
         self._gen_grammar(grammar)
-        return self._emitter.emit(), "".join(self._debugs)
+        return self._codegen.generate(), "".join(self._debugs)
 
     def _gen_grammar(self, grammar: Grammar):
         self._debugs.append("Grammar\n")
@@ -319,7 +319,7 @@ class ParserGen:
         name = rule.name.value
         self._debugs.append(f"\nRule start: {name}\n")
 
-        func = _FuncGen(name, self._emitter, self._debugs)
+        func = _ParserFuncGen(name, self._codegen, self._debugs)
         func.generate(rule.node, rule.comment)
 
         self._debugs.append(f"Rule end: {name}\n\n")

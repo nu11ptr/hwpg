@@ -10,7 +10,7 @@ from mlpg.config import Config, Lang, load, OutputType
 from mlpg.lexergen import TokensGen
 from mlpg.parsergen import ParserGen
 from mlpg.process import Process
-from mlpg.runtime.python.emitter import PyCodeEmitter, PyParseTreeMaker
+from mlpg.runtime.python.parser_codegen import PyParserCodeGen, PyParseTreeMaker
 from mlpg.runtime.python.lexer_codegen import PyTokensCodeGen
 
 _PARSER = "mlpg.lark"
@@ -30,7 +30,7 @@ def _parse_grammar(filename: str) -> Tree:
 
 def _gen_parser(grammar: Grammar, name: str, cfg: Config) -> Tuple[str, str]:
     if cfg.lang == Lang.PYTHON:
-        emitter = PyCodeEmitter(name, PyParseTreeMaker(), cfg.memoize)
+        emitter = PyParserCodeGen(name, PyParseTreeMaker(), cfg.memoize)
     else:
         raise AssertionError(f"Unknown or unsupported language: {cfg.lang}")
 
