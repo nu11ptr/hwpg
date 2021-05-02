@@ -2,7 +2,7 @@ from typing import Dict, List, Optional, Tuple
 
 from lark.lexer import Token
 
-from mlpg.ast import (
+from hwpg.ast import (
     Alternatives,
     Grammar,
     MultipartBody,

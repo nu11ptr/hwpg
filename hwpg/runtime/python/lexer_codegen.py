@@ -1,4 +1,4 @@
-from mlpg.lexergen import Jinja2TokensCodeGen
+from hwpg.lexergen import Jinja2TokensCodeGen
 
 
 class PyTokensCodeGen(Jinja2TokensCodeGen):

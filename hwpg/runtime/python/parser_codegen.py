@@ -2,7 +2,7 @@ from typing import List
 
 from jinja2 import Template
 
-from mlpg.parsergen import (
+from hwpg.parsergen import (
     BaseParserFuncCodeGen,
     ParserFuncCodeGen,
     Jinja2ParserCodeGen,

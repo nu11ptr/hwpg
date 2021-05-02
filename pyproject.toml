@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "mlpg"
+name = "hwpg"
 version = "0.1.0"
 description = "Multi Language Parser Generator"
 authors = ["Scott Meeuwsen <scott@apisw.com>"]
@@ -10,6 +10,7 @@ python = "^3.8"
 lark-parser = "^0.11.2"
 Jinja2 = "^2.11.3"
 click = "^7.1.2"
+loguru = "^0.5.3"
 
 [tool.poetry.dev-dependencies]
 black = "^20.8b1"

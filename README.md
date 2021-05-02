@@ -1,2 +1,3 @@
-# mlpg
-Multi Language Parser Generator
+# hwpg
+
+"Hand Written" Parser Generator

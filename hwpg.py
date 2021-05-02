@@ -5,15 +5,15 @@ from typing import List, Tuple
 import click
 from lark import Lark, Tree
 
-from mlpg.ast import Grammar, ToAST
-from mlpg.config import Config, Lang, load, OutputType
-from mlpg.lexergen import TokensGen
-from mlpg.parsergen import ParserGen
-from mlpg.process import Process
-from mlpg.runtime.python.parser_codegen import PyParserCodeGen, PyParseTreeMaker
-from mlpg.runtime.python.lexer_codegen import PyTokensCodeGen
+from hwpg.ast import Grammar, ToAST
+from hwpg.config import Config, Lang, load, OutputType
+from hwpg.lexergen import TokensGen
+from hwpg.parsergen import ParserGen
+from hwpg.process import Process
+from hwpg.runtime.python.parser_codegen import PyParserCodeGen, PyParseTreeMaker
+from hwpg.runtime.python.lexer_codegen import PyTokensCodeGen
 
-_PARSER = "mlpg.lark"
+_PARSER = "hwpg.lark"
 
 
 def _parse_grammar(filename: str) -> Tree:

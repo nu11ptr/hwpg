@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Protocol, Tuple
 
 from jinja2 import Environment, FileSystemLoader
 
-from mlpg.ast import (
+from hwpg.ast import (
     Alternatives,
     Grammar,
     MultipartBody,
