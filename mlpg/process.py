@@ -23,25 +23,30 @@ class Process:
     def __init__(self, grammar: Grammar):
         self._grammar = grammar
 
+        # A set would be better, but I want to keep ordering as much as possible
+        self._token_names: List[str] = []
         self._literals: Dict[str, Tuple[Token, Optional[TokenRef]]] = {}
         self._errors: List[str] = []
 
     def _log_error(self, msg: str):
         self._errors.append(f"ERROR: {msg}")
 
-    def process(self) -> Tuple[Grammar, List[str]]:
+    def process(self) -> Tuple[Grammar, List[str], List[str]]:
         # Process tokens first to ensure all literals are there by time parser
         # tree processing starts
         token_rules = [
             self._process_token_rule(rule) for rule in self._grammar.token_rules
         ]
         rules = [self._process_rule(rule) for rule in self._grammar.rules]
-        return Grammar(rules, token_rules), self._errors
+        return Grammar(rules, token_rules), self._token_names, self._errors
 
     def _process_token_rule(self, rule: TokenRule) -> TokenRule:
         # TODO: Adapt this as TokenRule evolves
         # Add to dict so we can validate against literals in our grammar
         self._literals[rule.literal.literal.value] = rule.name, None
+
+        # Add names to master token name list
+        self._token_names.append(rule.name.value)
         return rule
 
     def _process_rule(self, rule: Rule) -> Rule:
@@ -142,6 +147,11 @@ class Process:
     def _process_token_ref(
         self, ref: TokenRef, parent: Optional[NodeContainer]
     ) -> TokenRef:
+        # Add to our master token name list if first time seen
+        token_name = ref.name.value
+        if token_name not in self._token_names:
+            self._token_names.append(token_name)
+
         return ref
 
     def _process_token_lit(

@@ -20,24 +20,11 @@ class Config:
     lang: Lang = Lang.PYTHON
     output_type: OutputType = OutputType.PARSER
 
-    # If blank, these names are chosen by language specific codegen
-    parser_name: str = ""
-    lexer_name: str = ""
-    # 'token_name' only applies if 'output_type' is 'parser'. Otherwise, tokens
-    # and lexer are combined in one file ('lexer_name' would thus apply)
-    token_name: str = ""
-    stubs_name: str = ""  # Only used if 'MAKE_STUBS' is True
-
     parser_pkg: str = "."
     lexer_pkg: str = "."
-    # TOKEN_BASE_NAME only applies if 'OUTPUT_TYPE' is 'parser'. Otherwise, tokens
-    # and lexer are combined in one file (LEXER_PKG would thus apply)
-    token_pkg: str = "token"
-    stubs_pkg: str = "lexer"
 
     memoize: bool = True
     left_recursion: bool = True
-    make_stubs: bool = False
 
     lexer_transformer: Optional[Any] = None
     parser_transformer: Optional[Any] = None

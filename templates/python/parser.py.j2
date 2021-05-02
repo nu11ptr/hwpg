@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from typing import List, Optional
 {%- endif %}
 
-from .lexer import Token, TokenType, Tokenizer
+from .tokens import Token, TokenType, Tokenizer
 
 
 class _Parser:
@@ -29,7 +29,7 @@ class _Parser:
     def _match_token_or_rollback(self, tt: TokenType, old_pos: int) -> Optional[Token]:
         tok = self._curr_token()
 
-        if tok.token_type() != tt:
+        if tok.token_type != tt:
             self.pos = old_pos
             return None
 
@@ -48,7 +48,7 @@ class _Parser:
     def _try_match_token(self, tt: TokenType) -> Optional[Token]:
         tok = self._curr_token()
 
-        if tok.token_type() != tt:
+        if tok.token_type != tt:
             return None
 
         self._next_token()

@@ -1,15 +1,17 @@
 import os
 import sys
-from typing import Tuple
+from typing import List, Tuple
 
 import click
 from lark import Lark, Tree
 
 from mlpg.ast import Grammar, ToAST
 from mlpg.config import Config, Lang, load, OutputType
+from mlpg.lexergen import TokensGen
 from mlpg.parsergen import ParserGen
 from mlpg.process import Process
 from mlpg.runtime.python.emitter import PyCodeEmitter, PyParseTreeMaker
+from mlpg.runtime.python.lexer_codegen import PyTokensCodeGen
 
 _PARSER = "mlpg.lark"
 
@@ -36,17 +38,25 @@ def _gen_parser(grammar: Grammar, name: str, cfg: Config) -> Tuple[str, str]:
     return parser_str, emitter.parser_filename()
 
 
-def _save_parser(parser: str, output: str, filename: str):
+def _gen_tokens(token_names: List[str], cfg: Config) -> Tuple[str, str]:
+    if cfg.lang == Lang.PYTHON:
+        codegen = PyTokensCodeGen()
+    else:
+        raise AssertionError(f"Unknown or unsupported language: {cfg.lang}")
 
+    return TokensGen(codegen).generate(token_names)
+
+
+def _save_output(code: str, path: str, filename: str):
     try:
-        os.mkdir(output)
+        os.mkdir(path)
     except FileExistsError:
         pass
 
     # Save parser
-    output_file = os.path.join(output, filename)
+    output_file = os.path.join(path, filename)
     with open(output_file, "w") as f:
-        f.write(parser)
+        f.write(code)
 
 
 @click.command()
@@ -66,7 +76,8 @@ def _save_parser(parser: str, output: str, filename: str):
     "-o",
     type=click.Path(dir_okay=True),
     help="The output directory in which to write the generated files. It defaults to "
-    "the same folder in which the grammar is located",
+    "a folder with the same base name as your grammer (located in the same folder "
+    "as your grammar)",
 )
 def hwpg(filename: str, config: str, output: str):
     """
@@ -78,7 +89,10 @@ def hwpg(filename: str, config: str, output: str):
     cfg = load(config)
 
     if cfg.lang == Lang.GO:
-        print("'go' is not yet supported.")
+        print("'Go' is not yet supported.")
+        sys.exit(1)
+    elif cfg.lang != Lang.PYTHON:
+        print(f"Unsupported language: {cfg.lang}")
         sys.exit(1)
 
     if cfg.output_type != OutputType.PARSER:
@@ -94,7 +108,8 @@ def hwpg(filename: str, config: str, output: str):
     grammar = ToAST().transform(tree)
 
     # Do post processing optimizing the AST and looking for errors
-    new_grammar, errors = Process(grammar).process()
+    processor = Process(grammar)
+    new_grammar, token_names, errors = processor.process()
     if errors:
         err = "\n".join(errors)
         print(f"Errors:\n{err}")
@@ -102,15 +117,30 @@ def hwpg(filename: str, config: str, output: str):
 
     # Find the base name from the given grammar filename
     name, _ = os.path.splitext(os.path.basename(filename))
-
-    # Generate code for the parser
-    parser, parser_file = _gen_parser(new_grammar, name, cfg)
-
+    # If no output path specified, create new folder in the directory of our grammar
+    # with the same name
     if not output:
         output = os.path.dirname(filename)
+        output = os.path.join(output, name)
 
-    # Finally, save the parser to the filesystem
-    _save_parser(parser, output, parser_file)
+    # Special Python consideration, create __init__.py to make this a new package
+    if cfg.lang == Lang.PYTHON:
+        _save_output("", output, "__init__.py")
+
+    # Create tokens
+    tokens, tokens_file = _gen_tokens(token_names, cfg)
+    _save_output(tokens, output, tokens_file)
+
+    # Create Lexer, if needed
+    if cfg.output_type == OutputType.BOTH or cfg.output_type == OutputType.LEXER:
+        # TODO: Generate lexer here
+        pass
+
+    # Create parser, if needed
+    if cfg.output_type == OutputType.BOTH or cfg.output_type == OutputType.PARSER:
+        # Generate code for the parser
+        parser, parser_file = _gen_parser(new_grammar, name, cfg)
+        _save_output(parser, output, parser_file)
 
 
 if __name__ == "__main__":

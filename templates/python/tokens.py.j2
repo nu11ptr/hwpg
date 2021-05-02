@@ -1,0 +1,18 @@
+from enum import auto, IntEnum
+from typing import Protocol
+
+
+class TokenType(IntEnum):
+{%- for tt in token_types %}
+    {{ tt }} = auto()
+{%- endfor %}
+
+
+class Token(Protocol):
+    token_type: TokenType
+
+
+class Tokenizer(Protocol):
+    def next_token(self) -> Token:
+        ...
+

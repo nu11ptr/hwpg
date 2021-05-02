@@ -226,7 +226,7 @@ class PyCodeEmitter(Jinja2CodeEmitter):
         self._vars["memoize"] = memoize
 
     def parser_filename(self) -> str:
-        return f"{self.name}_parser.py"
+        return "parser.py"
 
     @staticmethod
     def make_func_name(name: str, sub: int = 0, depth: int = 0) -> str:
