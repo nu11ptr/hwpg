@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Protocol, Tuple
 
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 
 class TokensCodeGen(Protocol):
@@ -13,11 +13,11 @@ class TokensCodeGen(Protocol):
 
 
 class Jinja2TokensCodeGen:
-    def __init__(self, templates: str, filename: str):
+    def __init__(self, make_parse_tree: bool, templates: str, filename: str):
         loader = FileSystemLoader(templates)
-        self._env = Environment(loader=loader)
+        self._env = Environment(loader=loader, undefined=StrictUndefined)
         self._main_templ = self._env.get_template(filename)
-        self._vars: Dict[str, Any] = {}
+        self._vars: Dict[str, Any] = {"make_parse_tree": make_parse_tree}
 
     def generate(self, token_names: List[str]) -> str:
         self._vars["token_types"] = token_names

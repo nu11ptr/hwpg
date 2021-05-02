@@ -1,21 +1,21 @@
-{% if not ast -%}
+{% if make_parse_tree -%}
 from dataclasses import dataclass
 {%- endif %}
 {%- if memoize %}
-{%- if not ast %}
+{%- if make_parse_tree %}
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 {%- else %}
 from typing import Any, Callable, Dict, List, Optional, Tuple
 {% endif -%}
 {%- else %}
-{%- if not ast %}
+{%- if make_parse_tree %}
 from typing import List, Optional, Union
 {%- else %}
 from typing import List, Optional
 {%- endif %}
 {%- endif %}
 
-{% if not ast -%}
+{% if make_parse_tree -%}
 from .tokens import Token, TokenType, Tokenizer, {{ ret_type }}
 
 

@@ -1,3 +1,4 @@
+from hwpg.config import Config
 from typing import Optional, Tuple
 
 from jinja2 import Template
@@ -127,26 +128,32 @@ class PyParserFuncCodeGen(BaseParserFuncCodeGen):
         self,
         name: str,
         early_ret: bool,
+        make_parse_tree: bool,
         comment: str,
         actions: Optional[ParserActions],
     ):
-        super().__init__(name, early_ret, comment, actions)
+        super().__init__(name, early_ret, make_parse_tree, comment, actions)
 
         templ = Template(_FUNC_START)
-        self._action, self.ret_type = self._func_actions(name)
+        self._action, self.ret_type = self._func_actions()
         self._func_parts.append(
             templ.render(name=name, ret_type=self.ret_type, comment=self.comment)
         )
 
-    def _func_actions(self, name: str) -> Tuple[str, str]:
+    # TODO: Move this into lang agnostic parsegen so it can be reused for all langs
+    def _func_actions(self) -> Tuple[str, str]:
+        default_tup = "        return ParserNode([{{ vars }}])", "TreeNode"
         if not self._actions:
-            return "        return ParserNode([{{ vars }}])", "TreeNode"
+            return default_tup
 
-        attr_name = _strip_func_prefix(name)
+        attr_name = _strip_func_prefix(self.name)
         try:
-            func = getattr(self._func_actions, attr_name)
+            func = getattr(self._actions, attr_name)
         except AttributeError:
-            raise RuntimeError(f"Parser actions missing function '{attr_name}'")
+            if not self._make_parse_tree:
+                raise RuntimeError(f"Parser actions missing function '{attr_name}'")
+
+            return default_tup
 
         return func()
 
@@ -233,18 +240,9 @@ class PyParserFuncCodeGen(BaseParserFuncCodeGen):
 
 
 class PyParserCodeGen(Jinja2ParserCodeGen):
-    def __init__(
-        self,
-        name: str,
-        actions: Optional[ParserActions] = None,
-        memoize: bool = True,
-    ):
-        super().__init__(_TEMPL_FOLDER, _PARSER_TEMPL)
-        self._actions = actions
-        self.name = name
+    def __init__(self, name: str, cfg: Config):
+        super().__init__(name, cfg, _TEMPL_FOLDER, _PARSER_TEMPL)
         self._vars["name"] = name.title()  # TODO: Make camel case
-        self._vars["memoize"] = memoize
-        self._vars["ast"] = bool(self._actions)
 
     @property
     def parser_filename(self) -> str:
@@ -255,7 +253,9 @@ class PyParserCodeGen(Jinja2ParserCodeGen):
         return f"_parse_{name}_sub{sub}_depth{depth}" if sub > 0 else f"parse_{name}"
 
     def start_func(self, name: str, early_ret: bool, comment: str) -> ParserFuncCodeGen:
-        return PyParserFuncCodeGen(name, early_ret, comment, self._actions)
+        return PyParserFuncCodeGen(
+            name, early_ret, self._vars["make_parse_tree"], comment, self._actions
+        )
 
     def end_func(self, codegen: ParserFuncCodeGen):
         self._vars["ret_type"] = codegen.ret_type

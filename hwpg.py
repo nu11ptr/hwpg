@@ -30,7 +30,7 @@ def _parse_grammar(filename: str) -> Tree:
 
 def _gen_parser(grammar: Grammar, name: str, cfg: Config) -> Tuple[str, str]:
     if cfg.lang == Lang.PYTHON:
-        codgen = PyParserCodeGen(name, cfg.parser_actions, cfg.memoize)
+        codgen = PyParserCodeGen(name, cfg)
     else:
         raise AssertionError(f"Unknown or unsupported language: {cfg.lang}")
 
@@ -40,7 +40,7 @@ def _gen_parser(grammar: Grammar, name: str, cfg: Config) -> Tuple[str, str]:
 
 def _gen_tokens(token_names: List[str], cfg: Config) -> Tuple[str, str]:
     if cfg.lang == Lang.PYTHON:
-        codegen = PyTokensCodeGen()
+        codegen = PyTokensCodeGen(cfg.make_parse_tree)
     else:
         raise AssertionError(f"Unknown or unsupported language: {cfg.lang}")
 

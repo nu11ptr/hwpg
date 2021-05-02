@@ -1,7 +1,8 @@
+from __future__ import annotations
 from enum import auto, Enum
-from typing import Any, Dict, List, Optional, Protocol, Tuple
+from typing import Any, Dict, List, Optional, Protocol, Tuple, TYPE_CHECKING
 
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 from hwpg.ast import (
     Alternatives,
@@ -16,6 +17,9 @@ from hwpg.ast import (
     ZeroOrMore,
     ZeroOrOne,
 )
+
+if TYPE_CHECKING:
+    from hwpg.config import Config
 
 
 class ParserActions(Protocol):
@@ -91,6 +95,7 @@ class BaseParserFuncCodeGen:
         self,
         name: str,
         early_ret: bool,
+        make_parse_tree: bool,
         comment: str,
         actions: Optional[ParserActions],
     ):
@@ -98,6 +103,7 @@ class BaseParserFuncCodeGen:
         self.early_ret = early_ret
         self.comment = comment
         self._actions = actions
+        self._make_parse_tree = make_parse_tree
 
         self._vars: List[str] = []
         self._func_parts: List[str] = []
@@ -124,12 +130,17 @@ class BaseParserFuncCodeGen:
 class Jinja2ParserCodeGen:
     """Base class for parser code generator subclasses"""
 
-    def __init__(self, templates: str, filename: str):
+    def __init__(self, name: str, cfg: Config, templates: str, filename: str):
         loader = FileSystemLoader(templates)
-        self._env = Environment(loader=loader)
+        self._env = Environment(loader=loader, undefined=StrictUndefined)
         self._main_templ = self._env.get_template(filename)
+        self._actions = cfg.parser_actions
+        self.name = name
 
-        self._vars: Dict[str, Any] = {}
+        self._vars: Dict[str, Any] = {
+            "make_parse_tree": cfg.make_parse_tree,
+            "memoize": cfg.memoize,
+        }
         self._funcs: List[str] = []
 
     def _end_code(self):

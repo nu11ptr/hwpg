@@ -1,5 +1,5 @@
 from enum import auto, IntEnum
-{% if not ast -%}
+{% if make_parse_tree -%}
 from typing import List, Optional, Protocol, Union
 {% else -%}
 from typing import Protocol
@@ -13,7 +13,7 @@ class TokenType(IntEnum):
     {{ tt }} = auto()
 {%- endfor %}
 
-{% if not ast %}
+{% if make_parse_tree %}
 class TreeNode(Protocol):
     """
     Represents a single node in the parse tree. It is implemented by 'Token'

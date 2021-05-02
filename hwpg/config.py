@@ -26,6 +26,8 @@ class Config:
     parser_pkg: str = "."
     lexer_pkg: str = "."
 
+    # Parser options
+    make_parse_tree: bool = True
     memoize: bool = True
     left_recursion: bool = True
 
