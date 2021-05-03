@@ -18,6 +18,9 @@ from hwpg.ast import (
     ZeroOrOne,
 )
 
+_EOF = "EOF"
+_ILLEGAL = "ILLEGAL"
+
 
 class Process:
     def __init__(self, grammar: Grammar):
@@ -38,6 +41,14 @@ class Process:
             self._process_token_rule(rule) for rule in self._grammar.token_rules
         ]
         rules = [self._process_rule(rule) for rule in self._grammar.rules]
+
+        # Ensure these special tokens are always in the list
+        if _EOF not in self._token_names:
+            self._token_names.append(_EOF)
+
+        if _ILLEGAL not in self._token_names:
+            self._token_names.append(_ILLEGAL)
+
         return Grammar(rules, token_rules), self._token_names, self._errors
 
     def _process_token_rule(self, rule: TokenRule) -> TokenRule:

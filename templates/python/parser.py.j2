@@ -33,6 +33,7 @@ class _Parser:
         self._tok = tokenizer
         self.pos = -1
         self._tokens: List[Token] = []
+        self._next_token()
 
     def _curr_token(self) -> Token:
         return self._tokens[self.pos]
@@ -98,9 +99,9 @@ def _memoize(func):
             return result
 
         result = func(self)
-        pos = self.pos
         key = (func, pos)
-        self._memos[key] = result
+        self._memos[key] = result, self.pos
+        return result
 
     return memoize_wrapper
 {% endif %}

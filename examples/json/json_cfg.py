@@ -13,3 +13,4 @@ class JSONParserActions:
 
 
 parser_actions = JSONParserActions()
+memoize = True
