@@ -281,11 +281,7 @@ class _ParserFuncGen:
     def _gen_sub_rule_ref(self, node: Node, match: Match, comment: str):
         # Before handling current level, generate the nested function
         sub_func = _ParserFuncGen(
-            self._name,
-            self._codegen,
-            self._debugs,
-            self._next_sub,
-            self._depth + 1,
+            self._name, self._codegen, self._debugs, self._next_sub, self._depth + 1,
         )
         sub_name, self._next_sub = sub_func.generate(node, node.comment)
 

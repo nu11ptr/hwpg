@@ -130,7 +130,7 @@ class Process:
         if node is zom.node:
             return zom
 
-        return ZeroOrMore(node)
+        return ZeroOrMore(zom.binding, node)
 
     def _process_one_or_more(
         self, oom: OneOrMore, parent: Optional[NodeContainer]
@@ -139,7 +139,7 @@ class Process:
         if node is oom.node:
             return oom
 
-        return OneOrMore(node)
+        return OneOrMore(oom.binding, node)
 
     def _process_zero_or_one(
         self, zoo: ZeroOrOne, parent: Optional[NodeContainer]
@@ -148,7 +148,7 @@ class Process:
         if node is zoo.node:
             return zoo
 
-        return ZeroOrOne(node, zoo.brackets)
+        return ZeroOrOne(zoo.binding, node, zoo.brackets)
 
     def _process_rule_ref(
         self, ref: RuleRef, parent: Optional[NodeContainer]
@@ -178,7 +178,7 @@ class Process:
         name, ref = tup
         # If TokenRef not already created, do so and store for future
         if not ref:
-            ref = TokenRef(name, lit.literal)
+            ref = TokenRef(lit.binding, name, lit.literal)
             self._literals[lit.literal] = name, ref
 
         return ref
