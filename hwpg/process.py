@@ -54,7 +54,9 @@ class Process:
     def _process_token_rule(self, rule: TokenRule) -> TokenRule:
         # TODO: Adapt this as TokenRule evolves
         # Add to dict so we can validate against literals in our grammar
-        self._literals[rule.literal.literal.value] = rule.name, None
+        # Strip quotes - either ' or " before compare
+        lit_str = rule.literal.literal.value[1:-1]
+        self._literals[lit_str] = rule.name, None
 
         # Add names to master token name list
         self._token_names.append(rule.name.value)
@@ -168,7 +170,9 @@ class Process:
     def _process_token_lit(
         self, lit: TokenLit, parent: Optional[NodeContainer]
     ) -> Node:
-        tup = self._literals.get(lit.literal)
+        # Strip quotes - either ' or " before compare
+        lit_str = lit.literal[1:-1]
+        tup = self._literals.get(lit_str)
         if not tup:
             self._log_error(
                 f"Literal {lit.literal} does not have corresponding token rule"
@@ -179,6 +183,6 @@ class Process:
         # If TokenRef not already created, do so and store for future
         if not ref:
             ref = TokenRef(lit.binding, name, lit.literal)
-            self._literals[lit.literal] = name, ref
+            self._literals[lit_str] = name, ref
 
         return ref

@@ -3,21 +3,21 @@ value
     | list
     | STRING
     | NUMBER
-    | "true"
-    | "false"
-    | "null"
+    | 'true'
+    | 'false'
+    | 'null'
 
-list: "[" [value ("," value)*] "]"
+list: '[' [value (',' value)*] ']'
 
-dict: "{" [pair ("," pair)*] "}"
-pair: STRING ":" value
+dict: '{' [pair (',' pair)*] '}'
+pair: STRING ':' value
 
-TRUE: "true"
-FALSE: "false"
-NULL: "null"
-LBRACKET: "["
-RBRACKET: "]"
-LBRACE: "{"
-RBRACE: "}"
-COMMA: ","
-COLON: ":"
+TRUE: 'true'
+FALSE: 'false'
+NULL: 'null'
+LBRACKET: '['
+RBRACKET: ']'
+LBRACE: '{'
+RBRACE: '}'
+COMMA: ','
+COLON: ':'

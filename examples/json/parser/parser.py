@@ -61,7 +61,7 @@ class _Parser:
 
     def _try_match_tokens(self, tt: TokenType) -> List[Token]:
         tokens: List[Token] = []
-
+        
         while True:
             tok = self._try_match_token(tt)
             if not tok:
@@ -96,10 +96,11 @@ class JsonParser(_Parser):
         super().__init__(tokenizer)
         self._memos: Dict[Tuple[Callable, int], Any] = {}
 
+
     @_memoize
     def parse_value(self) -> Optional[TreeNode]:
         """
-        value: dict | list | STRING | NUMBER | "true" | "false" | "null"
+        value: dict | list | STRING | NUMBER | 'true' | 'false' | 'null'
         """
         old_pos = self.pos
 
@@ -123,17 +124,17 @@ class JsonParser(_Parser):
         if number:
             return number
 
-        # "true"
+        # 'true'
         true = self._try_match_token(TokenType.TRUE)
         if true:
             return true
 
-        # "false"
+        # 'false'
         false = self._try_match_token(TokenType.FALSE)
         if false:
             return false
 
-        # "null"
+        # 'null'
         null = self._try_match_token(TokenType.NULL)
         if null:
             return null
@@ -141,14 +142,15 @@ class JsonParser(_Parser):
         self.pos = old_pos
         return None
 
+
     @_memoize
     def _parse_list_sub2_depth2(self) -> Optional[TreeNode]:
         """
-        "," value
+        ',' value
         """
         old_pos = self.pos
 
-        # ","
+        # ','
         comma = self._match_token_or_rollback(TokenType.COMMA, old_pos)
         if not comma:
             return None
@@ -164,7 +166,7 @@ class JsonParser(_Parser):
     @_memoize
     def _parse_list_sub1_depth1(self) -> Optional[TreeNode]:
         """
-        value ("," value)*
+        value (',' value)*
         """
         old_pos = self.pos
 
@@ -174,7 +176,7 @@ class JsonParser(_Parser):
             self.pos = old_pos
             return None
 
-        # ("," value)*
+        # (',' value)*
         list_sub2_depth2_list: List[TreeNode] = []
         while True:
             list_sub2_depth2 = self._parse_list_sub2_depth2()
@@ -187,18 +189,18 @@ class JsonParser(_Parser):
     @_memoize
     def parse_list(self) -> Optional[TreeNode]:
         """
-        list: "[" [value ("," value)*] "]"
+        list: '[' [value (',' value)*] ']'
         """
         old_pos = self.pos
 
-        # "["
+        # '['
         lbracket = self._match_token_or_rollback(TokenType.LBRACKET, old_pos)
         if not lbracket:
             return None
 
-        # [value ("," value)*]
+        # [value (',' value)*]
         list_sub1_depth1 = self._parse_list_sub1_depth1()
-        # "]"
+        # ']'
         rbracket = self._match_token_or_rollback(TokenType.RBRACKET, old_pos)
         if not rbracket:
             return None
@@ -208,11 +210,11 @@ class JsonParser(_Parser):
     @_memoize
     def _parse_dict_sub2_depth2(self) -> Optional[TreeNode]:
         """
-        "," pair
+        ',' pair
         """
         old_pos = self.pos
 
-        # ","
+        # ','
         comma = self._match_token_or_rollback(TokenType.COMMA, old_pos)
         if not comma:
             return None
@@ -228,7 +230,7 @@ class JsonParser(_Parser):
     @_memoize
     def _parse_dict_sub1_depth1(self) -> Optional[TreeNode]:
         """
-        pair ("," pair)*
+        pair (',' pair)*
         """
         old_pos = self.pos
 
@@ -238,7 +240,7 @@ class JsonParser(_Parser):
             self.pos = old_pos
             return None
 
-        # ("," pair)*
+        # (',' pair)*
         dict_sub2_depth2_list: List[TreeNode] = []
         while True:
             dict_sub2_depth2 = self._parse_dict_sub2_depth2()
@@ -251,18 +253,18 @@ class JsonParser(_Parser):
     @_memoize
     def parse_dict(self) -> Optional[TreeNode]:
         """
-        dict: "{" [pair ("," pair)*] "}"
+        dict: '{' [pair (',' pair)*] '}'
         """
         old_pos = self.pos
 
-        # "{"
+        # '{'
         lbrace = self._match_token_or_rollback(TokenType.LBRACE, old_pos)
         if not lbrace:
             return None
 
-        # [pair ("," pair)*]
+        # [pair (',' pair)*]
         dict_sub1_depth1 = self._parse_dict_sub1_depth1()
-        # "}"
+        # '}'
         rbrace = self._match_token_or_rollback(TokenType.RBRACE, old_pos)
         if not rbrace:
             return None
@@ -272,7 +274,7 @@ class JsonParser(_Parser):
     @_memoize
     def parse_pair(self) -> Optional[TreeNode]:
         """
-        pair: STRING ":" value
+        pair: STRING ':' value
         """
         old_pos = self.pos
 
@@ -281,7 +283,7 @@ class JsonParser(_Parser):
         if not string:
             return None
 
-        # ":"
+        # ':'
         colon = self._match_token_or_rollback(TokenType.COLON, old_pos)
         if not colon:
             return None

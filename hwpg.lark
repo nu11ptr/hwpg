@@ -35,7 +35,7 @@ NL_PIPE: _NL? "|"
 _NL: /(\r?\n)+\s*/
 TOKEN_NAME: /[A-Z][A-Z0-9_]*/
 RULE_NAME: /[a-z][a-z0-9_]*/
-TOKEN_LIT: "\"" /.*?/ "\""
+TOKEN_LIT: /[\"']/ /.*?/ /[\"']/
 
 WS: /[ \t\f]/+
 COMMENT: /#[^\r\n]*\s*/
