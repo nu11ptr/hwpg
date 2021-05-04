@@ -10,7 +10,9 @@ rule: RULE_NAME NL? ":" rule_body
 
 rule_body: rule_part+ (NL? "|" rule_part+)*
 
-rule_part: rule_elem suffix? | "[" rule_body "]"
+binding: RULE_NAME "="
+
+rule_part: binding? (rule_elem suffix? | "[" rule_body "]")
 
 rule_elem: "(" rule_body ")" | RULE_NAME | TOKEN_NAME | TOKEN_LIT
 
@@ -24,6 +26,7 @@ token_rule: TOKEN_NAME ":" TOKEN_LIT
 
 COLON: ":"
 PIPE: "|"
+EQUALS: "="
 LBRACKET: "["
 RBRACKET: "]"
 LPAREN: "("

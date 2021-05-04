@@ -32,7 +32,12 @@ class MultipartBody(NodeContainer):
 
     @property
     def comment(self) -> str:
-        return " ".join([node.comment for node in self.nodes])
+        return " ".join(
+            [
+                f"({node.comment})" if isinstance(node, Alternatives) else node.comment
+                for node in self.nodes
+            ]
+        )
 
 
 # rule_part
