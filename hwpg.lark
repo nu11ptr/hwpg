@@ -8,11 +8,11 @@ entry: rule | token_rule
 
 rule: RULE_NAME _NL_COLON rule_body
 
-rule_body: rule_part+ (NL_PIPE rule_part+)*
-
 binding: RULE_NAME "="
 
-rule_part: binding? (rule_elem suffix? | LBRACKET rule_body RBRACKET)
+rule_body: binding? rule_part+ (NL_PIPE binding? rule_part+)*
+
+rule_part: rule_elem suffix? | LBRACKET rule_body RBRACKET
 
 ?rule_elem: "(" rule_body ")" | RULE_NAME | TOKEN_NAME | TOKEN_LIT
 

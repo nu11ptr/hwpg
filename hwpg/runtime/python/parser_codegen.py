@@ -249,8 +249,12 @@ class PyParserCodeGen(Jinja2ParserCodeGen):
         return "parser.py"
 
     @staticmethod
-    def make_func_name(name: str, sub: int = 0, depth: int = 0) -> str:
-        return f"_parse_{name}_sub{sub}_depth{depth}" if sub > 0 else f"parse_{name}"
+    def make_func_name(name: str, binding: str = "", sub: int = 0) -> str:
+        prefix = "_parse_" if sub > 0 else "parse_"
+        if binding:
+            return f"{prefix}{name}_{binding}"
+
+        return f"{prefix}{name}_inner{sub}" if sub > 0 else f"{prefix}{name}"
 
     def start_func(self, name: str, early_ret: bool, comment: str) -> ParserFuncCodeGen:
         return PyParserFuncCodeGen(

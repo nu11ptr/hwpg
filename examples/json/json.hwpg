@@ -7,9 +7,9 @@ value
     | 'false'
     | 'null'
 
-list: '[' [value (',' value)*] ']'
+list: '[' [elems = value (elems2 = ',' value)*] ']'
 
-dict: '{' [pair (',' pair)*] '}'
+dict: '{' [pairs = pair (pairs2 = ',' pair)*] '}'
 pair: STRING ':' value
 
 TRUE: 'true'

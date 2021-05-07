@@ -144,7 +144,7 @@ class JsonParser(_Parser):
 
 
     @_memoize
-    def _parse_list_sub2_depth2(self) -> Optional[TreeNode]:
+    def _parse_list_elems2(self) -> Optional[TreeNode]:
         """
         ',' value
         """
@@ -164,7 +164,7 @@ class JsonParser(_Parser):
         return ParserNode([comma, value])
 
     @_memoize
-    def _parse_list_sub1_depth1(self) -> Optional[TreeNode]:
+    def _parse_list_elems(self) -> Optional[TreeNode]:
         """
         value (',' value)*
         """
@@ -177,14 +177,14 @@ class JsonParser(_Parser):
             return None
 
         # (',' value)*
-        list_sub2_depth2_list: List[TreeNode] = []
+        list_elems2_list: List[TreeNode] = []
         while True:
-            list_sub2_depth2 = self._parse_list_sub2_depth2()
-            if not list_sub2_depth2:
+            list_elems2 = self._parse_list_elems2()
+            if not list_elems2:
                 break
-            list_sub2_depth2_list.append(list_sub2_depth2)
+            list_elems2_list.append(list_elems2)
 
-        return ParserNode([value, *list_sub2_depth2_list])
+        return ParserNode([value, *list_elems2_list])
 
     @_memoize
     def parse_list(self) -> Optional[TreeNode]:
@@ -199,16 +199,16 @@ class JsonParser(_Parser):
             return None
 
         # [value (',' value)*]
-        list_sub1_depth1 = self._parse_list_sub1_depth1()
+        list_elems = self._parse_list_elems()
         # ']'
         rbracket = self._match_token_or_rollback(TokenType.RBRACKET, old_pos)
         if not rbracket:
             return None
 
-        return ParserNode([lbracket, list_sub1_depth1, rbracket])
+        return ParserNode([lbracket, list_elems, rbracket])
 
     @_memoize
-    def _parse_dict_sub2_depth2(self) -> Optional[TreeNode]:
+    def _parse_dict_pairs2(self) -> Optional[TreeNode]:
         """
         ',' pair
         """
@@ -228,7 +228,7 @@ class JsonParser(_Parser):
         return ParserNode([comma, pair])
 
     @_memoize
-    def _parse_dict_sub1_depth1(self) -> Optional[TreeNode]:
+    def _parse_dict_pairs(self) -> Optional[TreeNode]:
         """
         pair (',' pair)*
         """
@@ -241,14 +241,14 @@ class JsonParser(_Parser):
             return None
 
         # (',' pair)*
-        dict_sub2_depth2_list: List[TreeNode] = []
+        dict_pairs2_list: List[TreeNode] = []
         while True:
-            dict_sub2_depth2 = self._parse_dict_sub2_depth2()
-            if not dict_sub2_depth2:
+            dict_pairs2 = self._parse_dict_pairs2()
+            if not dict_pairs2:
                 break
-            dict_sub2_depth2_list.append(dict_sub2_depth2)
+            dict_pairs2_list.append(dict_pairs2)
 
-        return ParserNode([pair, *dict_sub2_depth2_list])
+        return ParserNode([pair, *dict_pairs2_list])
 
     @_memoize
     def parse_dict(self) -> Optional[TreeNode]:
@@ -263,13 +263,13 @@ class JsonParser(_Parser):
             return None
 
         # [pair (',' pair)*]
-        dict_sub1_depth1 = self._parse_dict_sub1_depth1()
+        dict_pairs = self._parse_dict_pairs()
         # '}'
         rbrace = self._match_token_or_rollback(TokenType.RBRACE, old_pos)
         if not rbrace:
             return None
 
-        return ParserNode([lbrace, dict_sub1_depth1, rbrace])
+        return ParserNode([lbrace, dict_pairs, rbrace])
 
     @_memoize
     def parse_pair(self) -> Optional[TreeNode]:

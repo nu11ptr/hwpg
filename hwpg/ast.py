@@ -10,6 +10,11 @@ class Node(ABC):
     def comment(self) -> str:
         pass
 
+    # TODO: Figure out how to add this - causes error with dataclass decorator
+    # @abstractproperty
+    # def binding(self) -> Optional[Token]:
+    #     pass
+
 
 class NodeContainer(Node):
     pass
@@ -18,6 +23,7 @@ class NodeContainer(Node):
 # rule_body
 @dataclass
 class Alternatives(NodeContainer):
+    binding: Optional[Token]
     nodes: List[Node]
 
     @property
@@ -28,6 +34,7 @@ class Alternatives(NodeContainer):
 # rule_body
 @dataclass
 class MultipartBody(NodeContainer):
+    binding: Optional[Token]
     nodes: List[Node]
 
     @property
@@ -155,17 +162,22 @@ class Grammar:
     token_rules: List[TokenRule]
 
 
-def _wrap_token(binding: Optional[Token], node: Any) -> Node:
+def _wrap_token(node: Any) -> Node:
     if isinstance(node, Token):
         if node.type == "RULE_NAME":
-            return RuleRef(binding, node)
+            return RuleRef(None, node)
         if node.type == "TOKEN_NAME":
-            return TokenRef(binding, node)
+            return TokenRef(None, node)
         if node.type == "TOKEN_LIT":
-            return TokenLit(binding, node)
+            return TokenLit(None, node)
 
         raise AssertionError(f"Unknown token type: {node.type}")
 
+    return node
+
+
+def _bind(binding: Optional[Token], node: Node) -> Node:
+    node.binding = binding
     return node
 
 
@@ -204,19 +216,36 @@ class ToAST(Transformer):
     def rule_body(self, parts: List[Node]) -> Node:
         rules: List[Node] = []
         alts: List[Node] = []
+        binding: Optional[Token] = None
 
         for part in parts:
+            # If we find a binding then we are done with this part
+            if isinstance(part, List):
+                binding = part[0]
+                continue
+
             # When we hit a pipe in the stream, end current alternative
             if isinstance(part, Token) and "|" in part.value:
                 # If multiple rules, nest inside multipartbody otherwise just node itself
-                alts.append(MultipartBody(rules) if len(rules) > 1 else rules[0])
+                alts.append(
+                    MultipartBody(binding, rules)
+                    if len(rules) > 1
+                    else _bind(binding, rules[0])
+                )
+                binding = None
                 rules = []
                 continue
 
             rules.append(part)
 
-        alts.append(MultipartBody(rules) if len(rules) > 1 else rules[0])
-        return Alternatives(alts) if len(alts) > 1 else alts[0]
+        alts.append(
+            MultipartBody(binding, rules)
+            if len(rules) > 1
+            else _bind(binding, rules[0])
+        )
+
+        # NOTE: This doesn't get a binding here, but on a 2nd pass, if needed
+        return Alternatives(None, alts) if len(alts) > 1 else alts[0]
 
     def binding(self, args: List[Token]) -> List[Token]:
         return args
@@ -224,31 +253,21 @@ class ToAST(Transformer):
     def rule_part(self, args: List[Any]) -> Node:
         rule_len = len(args)
 
-        remaining, next_idx = rule_len, 0
-        binding: Optional[Token] = None
-
-        # Has binding?
-        if isinstance(args[0], List):
-            binding = args[0][0]
-            remaining, next_idx = rule_len - 1, 1
-
         # Has no suffix, nor in square brackets - return wrapped (if token)
-        if remaining == 1:
-            return _wrap_token(binding, args[next_idx])
-        elif remaining == 2:
-            rule_elem, suffix = args[next_idx:]
+        if rule_len == 1:
+            return _wrap_token(args[0])
+        elif rule_len == 2:
+            rule_elem, suffix = args
             if suffix == "+":
-                return OneOrMore(binding, _wrap_token(None, rule_elem))
+                return OneOrMore(None, _wrap_token(rule_elem))
             if suffix == "*":
-                return ZeroOrMore(binding, _wrap_token(None, rule_elem))
+                return ZeroOrMore(None, _wrap_token(rule_elem))
             if suffix == "?":
-                return ZeroOrOne(binding, _wrap_token(None, rule_elem), brackets=False)
+                return ZeroOrOne(None, _wrap_token(rule_elem), brackets=False)
 
             raise AssertionError(f"Unknown suffix: {suffix}")
         # rule body in between square brackets
-        elif remaining == 3:
-            return ZeroOrOne(
-                binding, _wrap_token(None, args[next_idx + 1]), brackets=True
-            )
+        elif rule_len == 3:
+            return ZeroOrOne(None, _wrap_token(args[1]), brackets=True)
 
         raise AssertionError(f"Invalid rule length {rule_len}")

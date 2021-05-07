@@ -19,7 +19,7 @@ _PARSER = "hwpg.lark"
 def _parse_grammar(filename: str) -> Tree:
     # Read our grammar
     with open(_PARSER, "r") as f:
-        parser = Lark(f, start="grammar", debug=True, parser="lalr")
+        parser = Lark(f, start="grammar", debug=True, parser="lalr", lexer="standard")
 
     # Read and parse the user's grammar
     with open(filename, "r") as f:

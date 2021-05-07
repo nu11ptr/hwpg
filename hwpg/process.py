@@ -70,6 +70,11 @@ class Process:
         return Rule(rule.name, body)
 
     def _process_node(self, node: Node, parent: Optional[NodeContainer] = None) -> Node:
+        # Top level bindings don't work right now (and I can't think what good
+        # they do? Just change the rule name....), so disallow them
+        if not parent and node.binding:
+            self._log_error(f"Top level binding '{node.binding.value}' is not allowed")
+
         type_ = type(node)
 
         if type_ is Alternatives:
@@ -106,7 +111,7 @@ class Process:
         if not changed:
             return alts
 
-        return Alternatives(new_alts)
+        return Alternatives(alts.binding, new_alts)
 
     def _process_multipart_body(
         self, body: MultipartBody, parent: Optional[NodeContainer]
@@ -123,7 +128,7 @@ class Process:
         if not changed:
             return body
 
-        return MultipartBody(new_parts)
+        return MultipartBody(body.binding, new_parts)
 
     def _process_zero_or_more(
         self, zom: ZeroOrMore, parent: Optional[NodeContainer]

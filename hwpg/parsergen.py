@@ -183,15 +183,17 @@ class _ParserFuncGen:
         self._debug_pieces.append(" " * self._depth * 4)
         self._debug_pieces.append(msg)
 
-    def generate(self, node: Node, comment: str) -> Tuple[str, int]:
+    def generate(
+        self, node: Node, comment: str, binding: Optional[str] = None
+    ) -> Tuple[str, int]:
         """
         Generates a new parser function. It returns a tuple of the generated
         function string and the next sub #
         """
-        # Start new code function
-        func_name = self._codegen.make_func_name(
-            self._name, self._next_sub, self._depth
-        )
+        # Figure out name for new function before starting function itself
+        binding = node.binding.value if node.binding else ""
+        func_name = self._codegen.make_func_name(self._name, binding, self._next_sub)
+
         # Only a multipart body disallows early return
         early_ret = not isinstance(node, MultipartBody)
         self._func_codegen = self._codegen.start_func(func_name, early_ret, comment)
@@ -281,7 +283,11 @@ class _ParserFuncGen:
     def _gen_sub_rule_ref(self, node: Node, match: Match, comment: str):
         # Before handling current level, generate the nested function
         sub_func = _ParserFuncGen(
-            self._name, self._codegen, self._debugs, self._next_sub, self._depth + 1,
+            self._name,
+            self._codegen,
+            self._debugs,
+            self._next_sub,
+            self._depth + 1,
         )
         sub_name, self._next_sub = sub_func.generate(node, node.comment)
 
@@ -291,7 +297,8 @@ class _ParserFuncGen:
     def _gen_rule_ref(self, rr: RuleRef, match: Match, comment: str):
         name = rr.name.value
         self._debug(f"RuleRef {name} ({match}\n")
-        self._gen_rule_match(self._codegen.make_func_name(name), match, comment)
+        func_name = self._codegen.make_func_name(name)
+        self._gen_rule_match(func_name, match, comment)
 
     def _gen_token_match(self, name: str, match: Match, comment: str):
         if match == Match.ONCE:
