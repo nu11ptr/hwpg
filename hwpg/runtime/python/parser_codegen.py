@@ -1,13 +1,12 @@
 from hwpg.config import Config
-from typing import Optional, Tuple
-
-from jinja2 import Template
+from typing import Optional
 
 from hwpg.parsergen import (
-    BaseParserFuncCodeGen,
-    ParserFuncCodeGen,
     Jinja2ParserCodeGen,
+    Jinja2ParserFuncCodeGen,
     ParserActions,
+    ParserFuncCodeGen,
+    TemplData,
 )
 
 _TEMPL_FOLDER = "templates/python"
@@ -123,7 +122,19 @@ def _strip_func_prefix(name: str) -> str:
     return name[6:] if name.startswith("parse_") else name[7:]
 
 
-class PyParserFuncCodeGen(BaseParserFuncCodeGen):
+class PyParserFuncCodeGen(Jinja2ParserFuncCodeGen):
+    _default_action = "        return ParserNode([{{ vars }}])", "TreeNode"
+    _func_start_templ = _FUNC_START
+    _early_ret_templ = _FUNC_END_EARLY_RET
+    _match_token_templ = _MATCH_TOKEN
+    _match_token_zero_or_one_templ = _MATCH_TOKEN_ZERO_OR_ONE
+    _match_token_zero_or_more_templ = _MATCH_TOKEN_ZERO_OR_MORE
+    _match_token_one_or_more_templ = _MATCH_TOKEN_ONE_OR_MORE
+    _parse_rule_templ = _MATCH_RULE
+    _parse_rule_zero_or_one_templ = _MATCH_RULE_ZERO_OR_ONE
+    _parse_rule_zero_or_more_templ = _MATCH_RULE_ZERO_OR_MORE
+    _parse_rule_one_or_more_templ = _MATCH_RULE_ONE_OR_MORE
+
     def __init__(
         self,
         name: str,
@@ -132,110 +143,64 @@ class PyParserFuncCodeGen(BaseParserFuncCodeGen):
         comment: str,
         actions: Optional[ParserActions],
     ):
-        super().__init__(name, early_ret, make_parse_tree, comment, actions)
-
-        templ = Template(_FUNC_START)
-        self._action, self.ret_type = self._func_actions()
-        self._func_parts.append(
-            templ.render(name=name, ret_type=self.ret_type, comment=self.comment)
+        super().__init__(
+            name, _strip_func_prefix(name), early_ret, make_parse_tree, comment, actions
         )
 
-    # TODO: Move this into lang agnostic parsegen so it can be reused for all langs
-    def _func_actions(self) -> Tuple[str, str]:
-        default_tup = "        return ParserNode([{{ vars }}])", "TreeNode"
-        if not self._actions:
-            return default_tup
+    def _start_func(self) -> TemplData:
+        return dict(name=self.name, ret_type=self.ret_type, comment=self.comment)
 
-        attr_name = _strip_func_prefix(self.name)
-        try:
-            func = getattr(self._actions, attr_name)
-        except AttributeError:
-            if not self._make_parse_tree:
-                raise RuntimeError(f"Parser actions missing function '{attr_name}'")
+    def _end_func(self) -> TemplData:
+        return dict(vars=", ".join(self._vars))
 
-            return default_tup
-
-        return func()
-
-    def _end_func(self):
-        if self.early_ret:
-            self._func_parts.append(_FUNC_END_EARLY_RET)
-        else:
-            templ = Template(self._action)
-            self._func_parts.append(templ.render(vars=", ".join(self._vars)))
-
-    def match_token(self, name: str, comment: str):
-        templ = Template(_MATCH_TOKEN)
+    def _match_token(self, name: str, comment: str) -> TemplData:
         var = self._new_var(name.lower())
-        self._func_parts.append(
-            templ.render(name=name, var=var, early_ret=self.early_ret, comment=comment)
-        )
+        return dict(name=name, var=var, early_ret=self.early_ret, comment=comment)
 
-    def match_token_zero_or_one(self, name: str, comment: str):
-        templ = Template(_MATCH_TOKEN_ZERO_OR_ONE)
+    def _match_token_zero_or_one(self, name: str, comment: str) -> TemplData:
         var = self._new_var(name.lower())
-        self._func_parts.append(
-            templ.render(name=name, var=var, early_ret=self.early_ret, comment=comment)
-        )
+        return dict(name=name, var=var, early_ret=self.early_ret, comment=comment)
 
-    def match_token_zero_or_more(self, name: str, comment: str):
-        templ = Template(_MATCH_TOKEN_ZERO_OR_MORE)
+    def _match_token_zero_or_more(self, name: str, comment: str) -> TemplData:
         var = self._new_var(name.lower() + "_list")
-        self._func_parts.append(
-            templ.render(name=name, var=var, early_ret=self.early_ret, comment=comment)
-        )
+        return dict(name=name, var=var, early_ret=self.early_ret, comment=comment)
 
-    def match_token_one_or_more(self, name: str, comment: str):
-        templ = Template(_MATCH_TOKEN_ONE_OR_MORE)
+    def _match_token_one_or_more(self, name: str, comment: str) -> TemplData:
         var = self._new_var(name.lower() + "_list")
-        self._func_parts.append(
-            templ.render(name=name, var=var, early_ret=self.early_ret, comment=comment)
-        )
+        return dict(name=name, var=var, early_ret=self.early_ret, comment=comment)
 
-    def parse_rule(self, name: str, comment: str):
-        templ = Template(_MATCH_RULE)
+    def _parse_rule(self, name: str, comment: str) -> TemplData:
         var = self._new_var(_strip_func_prefix(name))
-        self._func_parts.append(
-            templ.render(var=var, func=name, early_ret=self.early_ret, comment=comment)
-        )
+        return dict(var=var, func=name, early_ret=self.early_ret, comment=comment)
 
-    def parse_rule_zero_or_one(self, name: str, comment: str):
-        templ = Template(_MATCH_RULE_ZERO_OR_ONE)
+    def _parse_rule_zero_or_one(self, name: str, comment: str) -> TemplData:
         var = self._new_var(_strip_func_prefix(name))
-        self._func_parts.append(
-            templ.render(var=var, func=name, early_ret=self.early_ret, comment=comment)
-        )
+        return dict(var=var, func=name, early_ret=self.early_ret, comment=comment)
 
-    def parse_rule_zero_or_more(self, name: str, comment: str):
-        templ = Template(_MATCH_RULE_ZERO_OR_MORE)
+    def _parse_rule_zero_or_more(self, name: str, comment: str) -> TemplData:
         temp_var = _strip_func_prefix(name)
         var = self._new_var(temp_var + "_list")
 
-        self._func_parts.append(
-            templ.render(
-                temp_var=temp_var,
-                var=var,
-                func=name,
-                early_ret=self.early_ret,
-                ret_type=self.ret_type,
-                comment=comment,
-            )
+        return dict(
+            temp_var=temp_var,
+            var=var,
+            func=name,
+            early_ret=self.early_ret,
+            ret_type=self.ret_type,
+            comment=comment,
         )
 
-    def parse_rule_one_or_more(self, name: str, comment: str):
-        templ = Template(_MATCH_RULE_ONE_OR_MORE)
+    def _parse_rule_one_or_more(self, name: str, comment: str) -> TemplData:
         temp_var = _strip_func_prefix(name)
         var = self._new_var(temp_var + "_list")
 
-        self._func_parts.append(
-            templ.render(
-                temp_var=temp_var,
-                var=var,
-                func=name,
-                early_ret=self.early_ret,
-                ret_type=self.ret_type,
-                comment=comment,
-            )
+        return dict(
+            temp_var=temp_var,
+            var=var,
+            func=name,
+            early_ret=self.early_ret,
+            ret_type=self.ret_type,
+            comment=comment,
         )
 
 

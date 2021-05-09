@@ -1,8 +1,9 @@
 from __future__ import annotations
+from abc import ABC, abstractmethod
 from enum import auto, Enum
 from typing import Any, Dict, List, Optional, Protocol, Tuple, TYPE_CHECKING
 
-from jinja2 import Environment, FileSystemLoader, StrictUndefined
+from jinja2 import Environment, FileSystemLoader, StrictUndefined, Template
 
 from hwpg.ast import (
     Alternatives,
@@ -17,6 +18,8 @@ from hwpg.ast import (
     ZeroOrMore,
     ZeroOrOne,
 )
+
+TemplData = Dict[str, Any]
 
 if TYPE_CHECKING:
     from hwpg.config import Config
@@ -88,12 +91,25 @@ class ParserCodeGen(Protocol):
         ...
 
 
-class BaseParserFuncCodeGen:
+class Jinja2ParserFuncCodeGen(ABC):
     """Base class for parser function code generator subclasses"""
+
+    _default_action: Tuple[str, str]
+    _func_start_templ: str
+    _early_ret_templ: str
+    _match_token_templ: str
+    _match_token_zero_or_one_templ: str
+    _match_token_zero_or_more_templ: str
+    _match_token_one_or_more_templ: str
+    _parse_rule_templ: str
+    _parse_rule_zero_or_one_templ: str
+    _parse_rule_zero_or_more_templ: str
+    _parse_rule_one_or_more_templ: str
 
     def __init__(
         self,
         name: str,
+        attr_name: str,
         early_ret: bool,
         make_parse_tree: bool,
         comment: str,
@@ -104,9 +120,27 @@ class BaseParserFuncCodeGen:
         self.comment = comment
         self._actions = actions
         self._make_parse_tree = make_parse_tree
+        self._action, self.ret_type = self._func_actions(attr_name)
 
         self._vars: List[str] = []
         self._func_parts: List[str] = []
+
+        vars = self._start_func()
+        self._render_templ(self._func_start_templ, vars)
+
+    def _func_actions(self, name: str) -> Tuple[str, str]:
+        if not self._actions:
+            return self._default_action
+
+        try:
+            func = getattr(self._actions, name)
+        except AttributeError:
+            if not self._make_parse_tree:
+                raise RuntimeError(f"Parser actions missing function '{name}'")
+
+            return self._default_action
+
+        return func()
 
     def _new_var(self, name: str) -> str:
         new_name = name
@@ -119,12 +153,90 @@ class BaseParserFuncCodeGen:
         self._vars.append(new_name)
         return new_name
 
-    def _end_func(self):
+    @abstractmethod
+    def _start_func(self) -> TemplData:
         pass
 
+    @abstractmethod
+    def _end_func(self) -> TemplData:
+        pass
+
+    @abstractmethod
+    def _match_token(self, name: str, comment: str) -> TemplData:
+        pass
+
+    @abstractmethod
+    def _match_token_zero_or_one(self, name: str, comment: str) -> TemplData:
+        pass
+
+    @abstractmethod
+    def _match_token_zero_or_more(self, name: str, comment: str) -> TemplData:
+        pass
+
+    @abstractmethod
+    def _match_token_one_or_more(self, name: str, comment: str) -> TemplData:
+        pass
+
+    @abstractmethod
+    def _parse_rule(self, name: str, comment: str) -> TemplData:
+        pass
+
+    @abstractmethod
+    def _parse_rule_zero_or_one(self, name: str, comment: str) -> TemplData:
+        pass
+
+    @abstractmethod
+    def _parse_rule_zero_or_more(self, name: str, comment: str) -> TemplData:
+        pass
+
+    @abstractmethod
+    def _parse_rule_one_or_more(self, name: str, comment: str) -> TemplData:
+        pass
+
+    def _render_templ(self, templ_str: str, vars: Dict[str, Any]):
+        templ = Template(templ_str)
+        self._func_parts.append(templ.render(**vars))
+
     def generate(self) -> str:
-        self._end_func()
+        if self.early_ret:
+            self._func_parts.append(self._early_ret_templ)
+        else:
+            templ, vars = self._action, self._end_func()
+            self._render_templ(templ, vars)
+
         return "".join(self._func_parts)
+
+    def match_token(self, name: str, comment: str):
+        vars = self._match_token(name, comment)
+        self._render_templ(self._match_token_templ, vars)
+
+    def match_token_zero_or_one(self, name: str, comment: str):
+        vars = self._match_token_zero_or_one(name, comment)
+        self._render_templ(self._match_token_zero_or_one_templ, vars)
+
+    def match_token_zero_or_more(self, name: str, comment: str):
+        vars = self._match_token_zero_or_more(name, comment)
+        self._render_templ(self._match_token_zero_or_more_templ, vars)
+
+    def match_token_one_or_more(self, name: str, comment: str):
+        vars = self._match_token_one_or_more(name, comment)
+        self._render_templ(self._match_token_one_or_more_templ, vars)
+
+    def parse_rule(self, name: str, comment: str):
+        vars = self._parse_rule(name, comment)
+        self._render_templ(self._parse_rule_templ, vars)
+
+    def parse_rule_zero_or_one(self, name: str, comment: str):
+        vars = self._parse_rule_zero_or_one(name, comment)
+        self._render_templ(self._parse_rule_zero_or_one_templ, vars)
+
+    def parse_rule_zero_or_more(self, name: str, comment: str):
+        vars = self._parse_rule_zero_or_more(name, comment)
+        self._render_templ(self._parse_rule_zero_or_more_templ, vars)
+
+    def parse_rule_one_or_more(self, name: str, comment: str):
+        vars = self._parse_rule_one_or_more(name, comment)
+        self._render_templ(self._parse_rule_one_or_more_templ, vars)
 
 
 class Jinja2ParserCodeGen:
