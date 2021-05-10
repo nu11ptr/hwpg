@@ -78,10 +78,10 @@ class ParserCodeGen(Protocol):
         ...
 
     @staticmethod
-    def make_func_name(name: str, sub: int = 0, depth: int = 0) -> str:
+    def make_func_name(name: str, binding: str = "", sub: int = 0) -> str:
         ...
 
-    @property
+    @classmethod
     def parser_filename(self) -> str:
         ...
 
@@ -246,11 +246,13 @@ class Jinja2ParserCodeGen:
     _parser_func_codegen: Callable[
         [str, bool, bool, str, Optional[ParserActions]], ParserFuncCodeGen
     ]
+    _templ_dir: str
+    _parser_templ: str
 
-    def __init__(self, name: str, cfg: Config, templates: str, filename: str):
-        loader = FileSystemLoader(templates)
+    def __init__(self, name: str, cfg: Config):
+        loader = FileSystemLoader(type(self)._templ_dir)
         self._env = Environment(loader=loader, undefined=StrictUndefined)
-        self._main_templ = self._env.get_template(filename)
+        self._main_templ = self._env.get_template(type(self)._parser_templ)
         self._actions = cfg.parser_actions
         self.name = name
 
@@ -260,6 +262,10 @@ class Jinja2ParserCodeGen:
             "name": self._name,
         }
         self._funcs: List[str] = []
+
+    @classmethod
+    def parser_filename(cls) -> str:
+        return cls._parser_templ[:-3]
 
     @property
     def _name(self):

@@ -5,7 +5,6 @@ from hwpg.parsergen import (
     Jinja2ParserCodeGen,
     Jinja2ParserFuncCodeGen,
     ParserActions,
-    ParserFuncCodeGen,
     TemplData,
 )
 
@@ -206,17 +205,15 @@ class PyParserFuncCodeGen(Jinja2ParserFuncCodeGen):
 
 class PyParserCodeGen(Jinja2ParserCodeGen):
     _parser_func_codegen = PyParserFuncCodeGen
+    _templ_dir = _TEMPL_FOLDER
+    _parser_templ = _PARSER_TEMPL
 
     def __init__(self, name: str, cfg: Config):
-        super().__init__(name, cfg, _TEMPL_FOLDER, _PARSER_TEMPL)
+        super().__init__(name, cfg)
 
     @property
     def _name(self):
         return self.name.title()  # TODO: Make camel case
-
-    @property
-    def parser_filename(self) -> str:
-        return "parser.py"
 
     @staticmethod
     def make_func_name(name: str, binding: str = "", sub: int = 0) -> str:
