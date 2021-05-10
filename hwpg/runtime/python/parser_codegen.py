@@ -205,6 +205,8 @@ class PyParserFuncCodeGen(Jinja2ParserFuncCodeGen):
 
 
 class PyParserCodeGen(Jinja2ParserCodeGen):
+    _parser_func_codegen = PyParserFuncCodeGen
+
     def __init__(self, name: str, cfg: Config):
         super().__init__(name, cfg, _TEMPL_FOLDER, _PARSER_TEMPL)
         self._vars["name"] = name.title()  # TODO: Make camel case
@@ -220,12 +222,3 @@ class PyParserCodeGen(Jinja2ParserCodeGen):
             return f"{prefix}{name}_{binding}"
 
         return f"{prefix}{name}_inner{sub}" if sub > 0 else f"{prefix}{name}"
-
-    def start_func(self, name: str, early_ret: bool, comment: str) -> ParserFuncCodeGen:
-        return PyParserFuncCodeGen(
-            name, early_ret, self._vars["make_parse_tree"], comment, self._actions
-        )
-
-    def end_func(self, codegen: ParserFuncCodeGen):
-        self._vars["ret_type"] = codegen.ret_type
-        self._funcs.append(codegen.generate())

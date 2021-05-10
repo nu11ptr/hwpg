@@ -1,7 +1,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from enum import auto, Enum
-from typing import Any, Dict, List, Optional, Protocol, Tuple, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple, TYPE_CHECKING
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, Template
 
@@ -39,6 +39,7 @@ class ParserFuncCodeGen(Protocol):
     """Parser function code generator interface"""
 
     name: str
+    comment: str
     ret_type: str
     early_ret: bool
 
@@ -242,6 +243,10 @@ class Jinja2ParserFuncCodeGen(ABC):
 class Jinja2ParserCodeGen:
     """Base class for parser code generator subclasses"""
 
+    _parser_func_codegen: Callable[
+        [str, bool, bool, str, Optional[ParserActions]], ParserFuncCodeGen
+    ]
+
     def __init__(self, name: str, cfg: Config, templates: str, filename: str):
         loader = FileSystemLoader(templates)
         self._env = Environment(loader=loader, undefined=StrictUndefined)
@@ -255,11 +260,16 @@ class Jinja2ParserCodeGen:
         }
         self._funcs: List[str] = []
 
-    def _end_code(self):
-        pass
+    def start_func(self, name: str, early_ret: bool, comment: str) -> ParserFuncCodeGen:
+        return type(self)._parser_func_codegen(
+            name, early_ret, self._vars["make_parse_tree"], comment, self._actions
+        )
+
+    def end_func(self, codegen: ParserFuncCodeGen):
+        self._vars["ret_type"] = codegen.ret_type
+        self._funcs.append(codegen.generate())
 
     def generate(self) -> str:
-        self._end_code()
         self._vars["functions"] = self._funcs
         return self._main_templ.render(**self._vars)
 
