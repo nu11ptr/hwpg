@@ -209,7 +209,10 @@ class PyParserCodeGen(Jinja2ParserCodeGen):
 
     def __init__(self, name: str, cfg: Config):
         super().__init__(name, cfg, _TEMPL_FOLDER, _PARSER_TEMPL)
-        self._vars["name"] = name.title()  # TODO: Make camel case
+
+    @property
+    def _name(self):
+        return self.name.title()  # TODO: Make camel case
 
     @property
     def parser_filename(self) -> str:

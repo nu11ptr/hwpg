@@ -257,8 +257,13 @@ class Jinja2ParserCodeGen:
         self._vars: Dict[str, Any] = {
             "make_parse_tree": cfg.make_parse_tree,
             "memoize": cfg.memoize,
+            "name": self._name,
         }
         self._funcs: List[str] = []
+
+    @property
+    def _name(self):
+        return self.name
 
     def start_func(self, name: str, early_ret: bool, comment: str) -> ParserFuncCodeGen:
         return type(self)._parser_func_codegen(
